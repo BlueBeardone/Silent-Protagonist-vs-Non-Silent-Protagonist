@@ -1,0 +1,31 @@
+{
+  // Run the app and/or the local proxy from VS Code (Run and Debug / F5).
+  // Install the "Dart" and "Flutter" extensions first.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // The Flutter web app. Needs the proxy running to load numbers.
+      "name": "App (Chrome)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": ["-d", "chrome"]
+    },
+    {
+      // The local proxy that serves /api/stats on port 8080.
+      "name": "Proxy (port 8080)",
+      "request": "launch",
+      "type": "dart",
+      "program": "bin/server.dart"
+    }
+  ],
+  "compounds": [
+    {
+      // Starts the proxy first, then the app. Use the app's Refresh button if
+      // the first load beats the proxy to the port.
+      "name": "App + Proxy",
+      "configurations": ["Proxy (port 8080)", "App (Chrome)"],
+      "stopAll": true
+    }
+  ]
+}
