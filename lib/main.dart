@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'chart.dart';
+import 'numbers.dart';
 import 'stats.dart';
 
 /// Where the local proxy serves the combined numbers.
 const proxyUrl = 'http://localhost:8080/api/stats';
+
+/// Loads the stats shown on the page. Injectable so tests can supply fixtures
+/// without touching the network.
+typedef StatsLoader = Future<List<GameStats>> Function();
 
 void main() {
   runApp(const App());
@@ -25,7 +30,10 @@ class App extends StatelessWidget {
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, this.loadStats});
+
+  /// Overrides how the stats are fetched; null uses the local proxy.
+  final StatsLoader? loadStats;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -40,7 +48,9 @@ class _HomePageState extends State<HomePage> {
     _stats = _load();
   }
 
-  Future<List<GameStats>> _load() async {
+  Future<List<GameStats>> _load() => (widget.loadStats ?? _loadFromProxy)();
+
+  Future<List<GameStats>> _loadFromProxy() async {
     final response = await http.get(Uri.parse(proxyUrl));
     if (response.statusCode != 200) {
       throw Exception('Proxy returned ${response.statusCode}');
@@ -89,17 +99,37 @@ class _HomePageState extends State<HomePage> {
               ),
             );
           }
-          return Column(
-            children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  'Current players (solid) vs 30-day (light) vs 6-month (lightest)',
-                  style: TextStyle(fontSize: 13, color: Colors.white70),
+          return DefaultTabController(
+            length: 2,
+            child: Column(
+              children: [
+                const TabBar(
+                  tabs: [Tab(text: 'Chart'), Tab(text: 'Numbers')],
                 ),
-              ),
-              Expanded(child: ComparisonChart(stats: snapshot.data!)),
-            ],
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      Column(
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Text(
+                              'Current players (solid) vs 30-day (light) vs 6-month (lightest)',
+                              style: TextStyle(
+                                  fontSize: 13, color: Colors.white70),
+                            ),
+                          ),
+                          Expanded(
+                            child: ComparisonChart(stats: snapshot.data!),
+                          ),
+                        ],
+                      ),
+                      NumbersComparison(stats: snapshot.data!),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),

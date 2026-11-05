@@ -107,6 +107,147 @@ List<GameStats> parseStatsResponse(String body) {
   ];
 }
 
+/// The three numbers we compare for each game.
+enum Metric { current, avg30d, avg6m }
+
+/// Picks a game's value for [metric], or null when that lookup failed.
+double? metricValue(GameStats game, Metric metric) => switch (metric) {
+      Metric.current => game.current?.toDouble(),
+      Metric.avg30d => game.avg30d,
+      Metric.avg6m => game.avg6m,
+    };
+
+/// Human-readable name for a metric.
+String metricLabel(Metric metric) => switch (metric) {
+      Metric.current => 'Current players',
+      Metric.avg30d => '30-day average',
+      Metric.avg6m => '6-month average',
+    };
+
+/// Human-readable name for a camp.
+String campLabel(Camp camp) => switch (camp) {
+      Camp.silent => 'Silent',
+      Camp.nonSilent => 'Non-silent',
+    };
+
+/// The values [stats] holds for [camp] on [metric], skipping failed lookups.
+List<double> _campValues(List<GameStats> stats, Camp camp, Metric metric) => [
+      for (final game in stats)
+        if (game.camp == camp) ?metricValue(game, metric),
+    ];
+
+/// One metric's silent-vs-non-silent comparison, totalled across every game.
+///
+/// Totals and averages skip games whose lookup for the metric failed, so a
+/// dash in the table never counts as a zero here.
+class MetricSummary {
+  const MetricSummary({
+    required this.metric,
+    required this.silentTotal,
+    required this.nonSilentTotal,
+    required this.silentAverage,
+    required this.nonSilentAverage,
+    required this.silentCount,
+    required this.nonSilentCount,
+  });
+
+  final Metric metric;
+  final double silentTotal;
+  final double nonSilentTotal;
+  final double? silentAverage;
+  final double? nonSilentAverage;
+  final int silentCount;
+  final int nonSilentCount;
+
+  /// The camp with the larger total, or null when the two are equal.
+  Camp? get leader {
+    if (silentTotal == nonSilentTotal) return null;
+    return silentTotal > nonSilentTotal ? Camp.silent : Camp.nonSilent;
+  }
+
+  /// How many players separate the two camps (always positive).
+  double get margin => (silentTotal - nonSilentTotal).abs();
+
+  /// The margin as a percentage of the smaller total, or null when the smaller
+  /// total is zero (the gap cannot then be expressed as a percentage).
+  double? get marginPercent {
+    final smaller =
+        silentTotal < nonSilentTotal ? silentTotal : nonSilentTotal;
+    if (smaller <= 0) return null;
+    return margin / smaller * 100;
+  }
+}
+
+/// Totals one metric across both camps.
+MetricSummary summarizeMetric(List<GameStats> stats, Metric metric) {
+  final silentValues = _campValues(stats, Camp.silent, metric);
+  final nonSilentValues = _campValues(stats, Camp.nonSilent, metric);
+
+  double total(List<double> values) =>
+      values.fold(0, (sum, value) => sum + value);
+  double? average(List<double> values) =>
+      values.isEmpty ? null : total(values) / values.length;
+
+  return MetricSummary(
+    metric: metric,
+    silentTotal: total(silentValues),
+    nonSilentTotal: total(nonSilentValues),
+    silentAverage: average(silentValues),
+    nonSilentAverage: average(nonSilentValues),
+    silentCount: silentValues.length,
+    nonSilentCount: nonSilentValues.length,
+  );
+}
+
+/// The whole comparison: one [MetricSummary] per metric, plus which side is
+/// ahead overall and which metric separates the two sides most.
+class OverallSummary {
+  const OverallSummary({required this.summaries});
+
+  final List<MetricSummary> summaries;
+
+  /// The camp that wins more of the three metrics, or null when they tie.
+  Camp? get leader {
+    var silentWins = 0;
+    var nonSilentWins = 0;
+    for (final summary in summaries) {
+      switch (summary.leader) {
+        case Camp.silent:
+          silentWins++;
+        case Camp.nonSilent:
+          nonSilentWins++;
+        case null:
+          break;
+      }
+    }
+    if (silentWins == nonSilentWins) return null;
+    return silentWins > nonSilentWins ? Camp.silent : Camp.nonSilent;
+  }
+
+  /// The metric with the largest relative gap between the two camps — the one
+  /// that most separates them. A gap the percentages cannot express (a camp at
+  /// zero) counts as the widest possible. Ties keep the earliest metric.
+  MetricSummary get decidingMetric {
+    var best = summaries.first;
+    var bestScore = best.marginPercent ?? double.infinity;
+    for (final summary in summaries.skip(1)) {
+      final score = summary.marginPercent ?? double.infinity;
+      if (score > bestScore) {
+        best = summary;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+}
+
+/// Summarises every metric for the whole field of games.
+OverallSummary summarizeCamps(List<GameStats> stats) => OverallSummary(
+      summaries: [
+        for (final metric in Metric.values) summarizeMetric(stats, metric),
+      ],
+    );
+
 /// The games we compare, hardcoded as agreed: fifteen where the player creates
 /// and projects onto a blank-slate protagonist (silent), and fifteen built
 /// around an authored lead with a fixed voice and story (non-silent).

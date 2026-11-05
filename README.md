@@ -3,10 +3,16 @@
 This repo is about how a silent protagonist game compares to a non-silent
 protagonist game. "Silent" here means a blank-slate, self-insert protagonist:
 you create the character and you are the character. "Non-silent" means an
-authored lead with a fixed name, voice, and story you follow. It shows a bar
-chart of **current concurrent players**, **30-day average players**, and
-**6-month average players** for fifteen games on each side, so you can eyeball
-which camp is being played more.
+authored lead with a fixed name, voice, and story you follow. It has two tabs:
+a **Chart** tab showing a bar chart, and a **Numbers** tab showing a table of
+the exact figures with a verdict at the bottom. Both cover **current
+concurrent players**, **30-day average players**, and **6-month average
+players** for fifteen games on each side, so you can see which camp is being
+played more — and read the numbers behind it.
+
+The **Numbers** tab lists every game's three values, adds up (and averages)
+each camp, then names the side that is more popular overall and the deciding
+factor — the metric where the two sides differ most, in relative terms.
 
 - Silent protagonists (self-insert): Dark Souls Remastered, Elden Ring, Dark
   Souls III, Monster Hunter: World, Skyrim Special Edition, Fallout: New Vegas,
