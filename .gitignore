@@ -138,6 +138,9 @@ app.*.symbols
 # macOS
 .DS_Store
 
+# Local secrets / environment (commit .env.example instead)
+.env
+
 # Swift Package Manager
 **/.swiftpm/
 
