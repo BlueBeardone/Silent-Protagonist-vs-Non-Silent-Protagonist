@@ -134,6 +134,35 @@ void main() {
     );
   });
 
+  test('rejects a malformed cursor before the Mongo wrapper can map it to 503',
+      () async {
+    // On the real path LazyMongoCommentsStore wraps the store's DateTime.parse
+    // failure as CommentsUnavailableException, which the availability
+    // middleware turns into a 503. The handler must reject the cursor itself so
+    // the store never sees it; _DownStore stands in for that wrapper.
+    final handler = build(store: _DownStore());
+    final response = await handler(Request(
+        'GET', Uri.parse('http://localhost/api/comments?before=not-a-date')));
+    expect(response.statusCode, 400);
+  });
+
+  test('never throws on a malformed X-Forwarded-For value', () async {
+    final handler = build(trustedProxyHops: 1, writeLimit: 1);
+    FutureOr<Response> postFrom(String ip) => handler(Request(
+          'POST',
+          Uri.parse('http://localhost/api/comments'),
+          body: jsonEncode({'email': 'a@x.com', 'comment': 'x'}),
+          headers: {
+            'content-type': 'application/json',
+            'x-forwarded-for': ip,
+          },
+        ));
+    for (final ip in ['::1.2.3', '::ffff:1.2.3', ':::garbage', '1.2.3.4.5']) {
+      final status = (await postFrom(ip)).statusCode;
+      expect(status, isIn([200, 201, 429]), reason: ip);
+    }
+  });
+
   test('falls back to the socket IP when XFF is shorter than trusted hops',
       () async {
     // With two trusted hops, a single-entry chain is client-controlled and

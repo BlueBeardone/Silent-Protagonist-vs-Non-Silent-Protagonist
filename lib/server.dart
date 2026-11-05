@@ -123,6 +123,15 @@ Handler commentsHandler({
     if (limit > _maxPageSize) limit = _maxPageSize;
     final before = params['before'];
 
+    // Validate the cursor here, before the store sees it. A Mongo-backed store
+    // runs `DateTime.parse` inside a wrapper that rethrows any non-comments
+    // error as `CommentsUnavailableException`, so a malformed cursor would
+    // otherwise surface as a 503 instead of a 400. Rejecting it up front keeps
+    // the store from ever receiving a bad value.
+    if (before != null && DateTime.tryParse(before) == null) {
+      return _jsonError(400, 'Invalid cursor.');
+    }
+
     final List<Comment> comments;
     try {
       comments = await store.recent(limit: limit, before: before);
@@ -254,41 +263,53 @@ String _clientIp(Request request, int trustedProxyHops) {
 /// without a colon are returned unchanged.
 String _normalizeIp(String ip) {
   if (!ip.contains(':')) return ip;
-  var address = ip.split('%').first;
+  try {
+    var address = ip.split('%').first;
 
-  // Expand a trailing IPv4 literal (e.g. `::ffff:192.0.2.1`) into hextets.
-  if (address.contains('.')) {
-    final lastColon = address.lastIndexOf(':');
-    final octets = address.substring(lastColon + 1).split('.').map(int.parse).toList();
-    final high = ((octets[0] << 8) | octets[1]).toRadixString(16);
-    final low = ((octets[2] << 8) | octets[3]).toRadixString(16);
-    address = '${address.substring(0, lastColon + 1)}$high:$low';
+    // Expand a trailing IPv4 literal (e.g. `::ffff:192.0.2.1`) into hextets.
+    if (address.contains('.')) {
+      final lastColon = address.lastIndexOf(':');
+      final octets =
+          address.substring(lastColon + 1).split('.').map(int.parse).toList();
+      final high = ((octets[0] << 8) | octets[1]).toRadixString(16);
+      final low = ((octets[2] << 8) | octets[3]).toRadixString(16);
+      address = '${address.substring(0, lastColon + 1)}$high:$low';
+    }
+
+    final List<String> hextets;
+    final doubleColon = address.indexOf('::');
+    if (doubleColon >= 0) {
+      final left = address
+          .substring(0, doubleColon)
+          .split(':')
+          .where((part) => part.isNotEmpty)
+          .toList();
+      final right = address
+          .substring(doubleColon + 2)
+          .split(':')
+          .where((part) => part.isNotEmpty)
+          .toList();
+      final missing = 8 - left.length - right.length;
+      hextets = [
+        ...left,
+        ...List.filled(missing < 0 ? 0 : missing, '0'),
+        ...right,
+      ];
+    } else {
+      hextets = address.split(':');
+    }
+
+    final prefix = hextets
+        .take(4)
+        .map((part) => part.isEmpty ? '0' : part.toLowerCase())
+        .join(':');
+    return '$prefix::/64';
+  } catch (_) {
+    // A malformed address (bad IPv4 literal, non-numeric part, too few octets)
+    // must never escape: fall back to the original string so rate limiting
+    // still keys on something stable instead of throwing a 500.
+    return ip;
   }
-
-  final List<String> hextets;
-  final doubleColon = address.indexOf('::');
-  if (doubleColon >= 0) {
-    final left = address
-        .substring(0, doubleColon)
-        .split(':')
-        .where((part) => part.isNotEmpty)
-        .toList();
-    final right = address
-        .substring(doubleColon + 2)
-        .split(':')
-        .where((part) => part.isNotEmpty)
-        .toList();
-    final missing = 8 - left.length - right.length;
-    hextets = [...left, ...List.filled(missing < 0 ? 0 : missing, '0'), ...right];
-  } else {
-    hextets = address.split(':');
-  }
-
-  final prefix = hextets
-      .take(4)
-      .map((part) => part.isEmpty ? '0' : part.toLowerCase())
-      .join(':');
-  return '$prefix::/64';
 }
 
 /// Compares two strings without short-circuiting on the first difference, so
