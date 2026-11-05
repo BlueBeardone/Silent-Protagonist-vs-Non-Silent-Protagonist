@@ -69,6 +69,23 @@ void main() {
     });
   });
 
+  group('games', () {
+    test('has fifteen games on each side of the spectrum', () {
+      final silent = games.where((g) => g.camp == Camp.silent);
+      final nonSilent = games.where((g) => g.camp == Camp.nonSilent);
+
+      expect(silent, hasLength(15));
+      expect(nonSilent, hasLength(15));
+    });
+
+    test('every game has a unique, positive Steam appid', () {
+      final appids = games.map((g) => g.appid).toList();
+
+      expect(appids.every((id) => id > 0), isTrue);
+      expect(appids.toSet(), hasLength(games.length));
+    });
+  });
+
   group('parseStatsResponse', () {
     test('rebuilds every game, keeping missing numbers null', () {
       const body = '['

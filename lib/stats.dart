@@ -79,10 +79,54 @@ List<GameStats> parseStatsResponse(String body) {
   ];
 }
 
-/// The four games we compare, hardcoded as agreed.
+/// The games we compare, hardcoded as agreed: fifteen where the player creates
+/// and projects onto a blank-slate protagonist (silent), and fifteen built
+/// around an authored lead with a fixed voice and story (non-silent).
 const List<GameStats> games = [
+  // Silent / self-insert: you make the character, so you are the character.
   GameStats(name: 'Dark Souls Remastered', camp: Camp.silent, appid: 570940),
   GameStats(name: 'Elden Ring', camp: Camp.silent, appid: 1245620),
+  GameStats(name: 'Dark Souls III', camp: Camp.silent, appid: 374320),
+  GameStats(name: 'Monster Hunter: World', camp: Camp.silent, appid: 582010),
+  GameStats(name: 'Skyrim Special Edition', camp: Camp.silent, appid: 489830),
+  GameStats(name: 'Fallout: New Vegas', camp: Camp.silent, appid: 22380),
+  GameStats(name: 'Stardew Valley', camp: Camp.silent, appid: 413150),
+  GameStats(name: 'Terraria', camp: Camp.silent, appid: 105600),
+  GameStats(name: 'Valheim', camp: Camp.silent, appid: 892970),
+  GameStats(name: 'ARK: Survival Evolved', camp: Camp.silent, appid: 346110),
+  GameStats(name: 'Rust', camp: Camp.silent, appid: 252490),
+  GameStats(name: 'Path of Exile', camp: Camp.silent, appid: 238960),
+  GameStats(name: 'Warframe', camp: Camp.silent, appid: 230410),
+  GameStats(name: "No Man's Sky", camp: Camp.silent, appid: 275850),
+  GameStats(name: 'Divinity: Original Sin 2', camp: Camp.silent, appid: 435150),
+
+  // Non-silent: an authored protagonist whose story you follow.
   GameStats(name: 'GTA V', camp: Camp.nonSilent, appid: 271590),
   GameStats(name: 'God of War', camp: Camp.nonSilent, appid: 1593500),
+  GameStats(name: 'The Witcher 3: Wild Hunt', camp: Camp.nonSilent, appid: 292030),
+  GameStats(name: 'Red Dead Redemption 2', camp: Camp.nonSilent, appid: 1174180),
+  GameStats(name: "Assassin's Creed Odyssey", camp: Camp.nonSilent, appid: 812140),
+  GameStats(name: "Assassin's Creed Origins", camp: Camp.nonSilent, appid: 582160),
+  GameStats(
+      name: 'Halo: The Master Chief Collection',
+      camp: Camp.nonSilent,
+      appid: 976730),
+  GameStats(name: 'Resident Evil 2', camp: Camp.nonSilent, appid: 883710),
+  GameStats(name: 'NieR: Automata', camp: Camp.nonSilent, appid: 524220),
+  GameStats(name: 'Horizon Zero Dawn Complete Edition',
+      camp: Camp.nonSilent, appid: 1151640),
+  GameStats(
+      name: "Marvel's Spider-Man Remastered",
+      camp: Camp.nonSilent,
+      appid: 1817070),
+  GameStats(name: 'The Last of Us Part I', camp: Camp.nonSilent, appid: 1888930),
+  GameStats(
+      name: 'Star Wars Jedi: Fallen Order',
+      camp: Camp.nonSilent,
+      appid: 1172380),
+  GameStats(name: 'Rise of the Tomb Raider', camp: Camp.nonSilent, appid: 391220),
+  GameStats(
+      name: "Ghost of Tsushima Director's Cut",
+      camp: Camp.nonSilent,
+      appid: 2215430),
 ];

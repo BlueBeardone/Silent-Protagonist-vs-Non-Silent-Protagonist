@@ -1,12 +1,22 @@
 # Silent-Protagonist-vs-Non-Silent-Protagonist
 
 This repo is about how a silent protagonist game compares to a non-silent
-protagonist game. It shows a bar chart of **current concurrent players** and
-**30-day average players** for four games, so you can eyeball which camp is
-being played more.
+protagonist game. "Silent" here means a blank-slate, self-insert protagonist:
+you create the character and you are the character. "Non-silent" means an
+authored lead with a fixed name, voice, and story you follow. It shows a bar
+chart of **current concurrent players** and **30-day average players** for
+fifteen games on each side, so you can eyeball which camp is being played more.
 
-- Silent protagonist: Dark Souls Remastered, Elden Ring
-- Non-silent protagonist: GTA V, God of War
+- Silent protagonists (self-insert): Dark Souls Remastered, Elden Ring, Dark
+  Souls III, Monster Hunter: World, Skyrim Special Edition, Fallout: New Vegas,
+  Stardew Valley, Terraria, Valheim, ARK: Survival Evolved, Rust, Path of Exile,
+  Warframe, No Man's Sky, Divinity: Original Sin 2
+- Non-silent protagonists (authored leads): GTA V, God of War, The Witcher 3:
+  Wild Hunt, Red Dead Redemption 2, Assassin's Creed Odyssey, Assassin's Creed
+  Origins, Halo: The Master Chief Collection, Resident Evil 2, NieR: Automata,
+  Horizon Zero Dawn Complete Edition, Marvel's Spider-Man Remastered, The Last
+  of Us Part I, Star Wars Jedi: Fallen Order, Rise of the Tomb Raider, Ghost of
+  Tsushima Director's Cut
 
 ## How it works
 
