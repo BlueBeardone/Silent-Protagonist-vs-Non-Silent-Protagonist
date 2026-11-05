@@ -134,6 +134,46 @@ void main() {
     });
   });
 
+  group('parseSteamChartsAllTimePeak', () {
+    // Real structure from steamcharts.com/app/<id>: the header holds several
+    // .app-stat blocks; only the one labelled "all-time peak" is the record.
+    const html = '''
+      <div id="app-heading">
+        <div class="app-stat">
+          <span class="num">19406</span><br>playing
+        </div>
+        <div class="app-stat">
+          <span class="num">25650</span><br>24-hour peak
+        </div>
+        <div class="app-stat">
+          <span class="num">952523</span><br>all-time peak
+        </div>
+      </div>
+      ''';
+
+    test('reads the all-time peak, not the 24-hour peak or playing count', () {
+      expect(parseSteamChartsAllTimePeak(html), 952523);
+    });
+
+    test('reads a different peak (not a constant)', () {
+      const other = '<div class="app-stat"><span class="num">58009</span>'
+          '<br>all-time peak</div>';
+      expect(parseSteamChartsAllTimePeak(other), 58009);
+    });
+
+    test('strips thousands separators', () {
+      const comma = '<div class="app-stat"><span class="num">1,234,567</span>'
+          '<br>all-time peak</div>';
+      expect(parseSteamChartsAllTimePeak(comma), 1234567);
+    });
+
+    test('throws when the page has no all-time peak', () {
+      const none = '<div class="app-stat"><span class="num">5</span>'
+          '<br>24-hour peak</div>';
+      expect(() => parseSteamChartsAllTimePeak(none), throwsA(isA<Exception>()));
+    });
+  });
+
   group('games', () {
     test('has fifteen games on each side of the spectrum', () {
       final silent = games.where((g) => g.camp == Camp.silent);
@@ -155,7 +195,8 @@ void main() {
     test('rebuilds every game, keeping missing numbers null', () {
       const body = '['
           '{"name":"GTA V","camp":"nonSilent","appid":271590,'
-          '"current":24649,"avg30d":47137.17,"avg6m":38000.5},'
+          '"current":24649,"avg30d":47137.17,"avg6m":38000.5,'
+          '"peakAllTime":952523},'
           '{"name":"God of War","camp":"nonSilent","appid":1593500,'
           '"current":null,"avg30d":null}'
           ']';
@@ -169,10 +210,12 @@ void main() {
       expect(result.first.current, 24649);
       expect(result.first.avg30d, 47137.17);
       expect(result.first.avg6m, 38000.5);
+      expect(result.first.peakAllTime, 952523);
       expect(result[1].name, 'God of War');
       expect(result[1].current, isNull);
       expect(result[1].avg30d, isNull);
       expect(result[1].avg6m, isNull);
+      expect(result[1].peakAllTime, isNull);
     });
   });
 }

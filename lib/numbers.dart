@@ -46,6 +46,7 @@ class _StatsTable extends StatelessWidget {
             DataColumn(label: Text('Current'), numeric: true),
             DataColumn(label: Text('30-day'), numeric: true),
             DataColumn(label: Text('6-month'), numeric: true),
+            DataColumn(label: Text('Peak'), numeric: true),
           ],
           rows: [
             for (final camp in Camp.values) ...[
@@ -89,6 +90,7 @@ class _StatsTable extends StatelessWidget {
               DataCell(Text(formatCount(game.current?.toDouble()))),
               DataCell(Text(formatCount(game.avg30d))),
               DataCell(Text(formatCount(game.avg6m))),
+              DataCell(Text(formatCount(game.peakAllTime?.toDouble()))),
             ],
           ),
       ];

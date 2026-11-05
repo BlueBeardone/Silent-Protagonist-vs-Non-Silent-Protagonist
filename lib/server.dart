@@ -46,6 +46,7 @@ Future<GameStats> _fetchOne(http.Client client, GameStats game) async {
   int? current;
   double? avg30d;
   double? avg6m;
+  int? peakAllTime;
 
   try {
     final response = await client.get(Uri.parse(
@@ -69,6 +70,11 @@ Future<GameStats> _fetchOne(http.Client client, GameStats game) async {
       } catch (_) {
         // Leave avg6m null; the UI shows a dash.
       }
+      try {
+        peakAllTime = parseSteamChartsAllTimePeak(response.body);
+      } catch (_) {
+        // Leave peakAllTime null; the UI shows a dash.
+      }
     }
   } catch (_) {
     // Leave avg30d null; the UI shows a dash.
@@ -81,5 +87,6 @@ Future<GameStats> _fetchOne(http.Client client, GameStats game) async {
     current: current,
     avg30d: avg30d,
     avg6m: avg6m,
+    peakAllTime: peakAllTime,
   );
 }

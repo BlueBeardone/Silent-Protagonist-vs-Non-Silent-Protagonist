@@ -6,11 +6,11 @@ you create the character and you are the character. "Non-silent" means an
 authored lead with a fixed name, voice, and story you follow. It has two tabs:
 a **Chart** tab showing a bar chart, and a **Numbers** tab showing a table of
 the exact figures with a verdict at the bottom. Both cover **current
-concurrent players**, **30-day average players**, and **6-month average
-players** for fifteen games on each side, so you can see which camp is being
-played more — and read the numbers behind it.
+concurrent players**, **30-day average players**, **6-month average players**,
+and each game's **all-time peak** for fifteen games on each side, so you can
+see which camp is being played more — and read the numbers behind it.
 
-The **Numbers** tab lists every game's three values, adds up (and averages)
+The **Numbers** tab lists every game's four values, adds up (and averages)
 each camp, then names the side that is more popular overall and the deciding
 factor — the metric where the two sides differ most, in relative terms.
 
@@ -40,6 +40,7 @@ directly. The small Dart proxy in `lib/server.dart` (entrypoint
 - Live players: Steam `ISteamUserStats/GetNumberOfCurrentPlayers`
 - 30-day average: the "Last 30 Days" row scraped from `steamcharts.com`
 - 6-month average: the last six monthly rows on `steamcharts.com`, averaged
+- All-time peak: the "all-time peak" figure in the `steamcharts.com` header
 - A failed lookup stays `null` and the UI shows a dash.
 
 ## Run it

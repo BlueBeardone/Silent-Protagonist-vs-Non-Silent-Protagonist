@@ -23,14 +23,16 @@ void main() {
         appid: 1,
         current: 900,
         avg30d: 800,
-        avg6m: 700),
+        avg6m: 700,
+        peakAllTime: 1000),
     GameStats(
         name: 'God of War',
         camp: Camp.nonSilent,
         appid: 2,
         current: 100,
         avg30d: 200,
-        avg6m: 300),
+        avg6m: 300,
+        peakAllTime: 200),
   ];
 
   group('formatPercent', () {
@@ -100,6 +102,16 @@ void main() {
       expect(find.text('Current players: Silent by 800'), findsOneWidget);
       expect(find.text('30-day average: Silent by 600'), findsOneWidget);
       expect(find.text('6-month average: Silent by 400'), findsOneWidget);
+      expect(find.text('All-time peak: Silent by 800'), findsOneWidget);
+    });
+
+    testWidgets('shows an all-time peak column with each game\'s record',
+        (tester) async {
+      await tester.pumpWidget(host(sample));
+
+      expect(find.text('Peak'), findsOneWidget);
+      // Elden Ring's record is 1,000 (row, total, and average all show it).
+      expect(find.text('1,000'), findsWidgets);
     });
 
     testWidgets('says both sides are equal on a tie', (tester) async {

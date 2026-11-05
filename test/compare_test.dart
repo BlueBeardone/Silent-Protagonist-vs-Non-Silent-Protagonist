@@ -2,16 +2,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/stats.dart';
 
 void main() {
-  GameStats silent({int? current, double? avg30d, double? avg6m}) => GameStats(
+  GameStats silent(
+          {int? current, double? avg30d, double? avg6m, int? peak}) =>
+      GameStats(
         name: 'S',
         camp: Camp.silent,
         appid: 1,
         current: current,
         avg30d: avg30d,
         avg6m: avg6m,
+        peakAllTime: peak,
       );
 
-  GameStats nonSilent({int? current, double? avg30d, double? avg6m}) =>
+  GameStats nonSilent(
+          {int? current, double? avg30d, double? avg6m, int? peak}) =>
       GameStats(
         name: 'N',
         camp: Camp.nonSilent,
@@ -19,20 +23,24 @@ void main() {
         current: current,
         avg30d: avg30d,
         avg6m: avg6m,
+        peakAllTime: peak,
       );
 
   group('metricValue', () {
     test('maps each metric to its field', () {
-      final game = silent(current: 10, avg30d: 20, avg6m: 30);
+      final game =
+          silent(current: 10, avg30d: 20, avg6m: 30, peak: 40);
       expect(metricValue(game, Metric.current), 10);
       expect(metricValue(game, Metric.avg30d), 20);
       expect(metricValue(game, Metric.avg6m), 30);
+      expect(metricValue(game, Metric.peak), 40);
     });
 
     test('returns null for a metric whose lookup failed', () {
       final game = silent(current: null, avg30d: 20, avg6m: null);
       expect(metricValue(game, Metric.current), isNull);
       expect(metricValue(game, Metric.avg6m), isNull);
+      expect(metricValue(game, Metric.peak), isNull);
     });
   });
 
@@ -41,6 +49,7 @@ void main() {
       expect(metricLabel(Metric.current), 'Current players');
       expect(metricLabel(Metric.avg30d), '30-day average');
       expect(metricLabel(Metric.avg6m), '6-month average');
+      expect(metricLabel(Metric.peak), 'All-time peak');
     });
   });
 
@@ -128,9 +137,9 @@ void main() {
   });
 
   group('summarizeCamps', () {
-    test('leader is the camp that wins more of the three metrics', () {
+    test('leader is the camp that wins more of the four metrics', () {
       final stats = <GameStats>[
-        // silent wins current and avg30d; non-silent wins avg6m.
+        // silent wins current and avg30d; non-silent wins avg6m; peak ties.
         silent(current: 400, avg30d: 600, avg6m: 100),
         nonSilent(current: 100, avg30d: 200, avg6m: 300),
       ];
@@ -138,13 +147,14 @@ void main() {
       final overall = summarizeCamps(stats);
 
       expect(overall.leader, Camp.silent);
-      expect(overall.summaries, hasLength(3));
+      expect(overall.summaries, hasLength(4));
     });
 
     test('deciding metric is the one with the biggest relative gap', () {
       final stats = <GameStats>[
         // Absolute margins grow per metric, but the *relative* gap is largest
-        // for current players: +300% vs +200% vs +166%.
+        // for current players: +300% vs +200% vs +166%. The peak ties, so it
+        // must not win on its undefined percentage.
         silent(current: 400, avg30d: 600, avg6m: 800),
         nonSilent(current: 100, avg30d: 200, avg6m: 300),
       ];
@@ -152,10 +162,20 @@ void main() {
       expect(summarizeCamps(stats).decidingMetric.metric, Metric.current);
     });
 
+    test('deciding metric can be the all-time peak', () {
+      final stats = <GameStats>[
+        // Every average is close; the peak is the widest relative gap.
+        silent(current: 900, avg30d: 900, avg6m: 900, peak: 1000),
+        nonSilent(current: 800, avg30d: 800, avg6m: 800, peak: 100),
+      ];
+
+      expect(summarizeCamps(stats).decidingMetric.metric, Metric.peak);
+    });
+
     test('leader is null when every metric ties', () {
       final stats = <GameStats>[
-        silent(current: 100, avg30d: 100, avg6m: 100),
-        nonSilent(current: 100, avg30d: 100, avg6m: 100),
+        silent(current: 100, avg30d: 100, avg6m: 100, peak: 100),
+        nonSilent(current: 100, avg30d: 100, avg6m: 100, peak: 100),
       ];
 
       expect(summarizeCamps(stats).leader, isNull);

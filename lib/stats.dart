@@ -58,12 +58,31 @@ double parseSteamCharts6mAvg(String body) {
   return months.reduce((a, b) => a + b) / months.length;
 }
 
+/// Scrapes the "all-time peak" player count out of a SteamCharts page.
+///
+/// The page header holds several `div.app-stat` blocks (playing, 24-hour peak,
+/// all-time peak); only the one whose text says "all-time peak" is the record.
+/// The number may carry thousands separators.
+int parseSteamChartsAllTimePeak(String body) {
+  final document = html_parser.parse(body);
+  for (final stat in document.querySelectorAll('div.app-stat')) {
+    if (!stat.text.contains('all-time peak')) continue;
+    final text = stat.querySelector('span.num')?.text.trim() ?? '';
+    final value = int.tryParse(text.replaceAll(',', ''));
+    if (value == null) {
+      throw FormatException('All-time peak had no number: $text');
+    }
+    return value;
+  }
+  throw FormatException('No all-time peak in SteamCharts page');
+}
+
 /// Which camp a game belongs to for the comparison.
 enum Camp { silent, nonSilent }
 
-/// One game's numbers. [current], [avg30d] and [avg6m] are null when their
-/// source lookup failed, so the UI can show a dash instead of a misleading
-/// zero.
+/// One game's numbers. [current], [avg30d], [avg6m] and [peakAllTime] are null
+/// when their source lookup failed, so the UI can show a dash instead of a
+/// misleading zero.
 class GameStats {
   const GameStats({
     required this.name,
@@ -72,6 +91,7 @@ class GameStats {
     this.current,
     this.avg30d,
     this.avg6m,
+    this.peakAllTime,
   });
 
   final String name;
@@ -80,6 +100,7 @@ class GameStats {
   final int? current;
   final double? avg30d;
   final double? avg6m;
+  final int? peakAllTime;
 
   Map<String, dynamic> toJson() => {
         'name': name,
@@ -88,6 +109,7 @@ class GameStats {
         'current': current,
         'avg30d': avg30d,
         'avg6m': avg6m,
+        'peakAllTime': peakAllTime,
       };
 }
 
@@ -103,18 +125,20 @@ List<GameStats> parseStatsResponse(String body) {
         current: item['current'] as int?,
         avg30d: (item['avg30d'] as num?)?.toDouble(),
         avg6m: (item['avg6m'] as num?)?.toDouble(),
+        peakAllTime: item['peakAllTime'] as int?,
       ),
   ];
 }
 
-/// The three numbers we compare for each game.
-enum Metric { current, avg30d, avg6m }
+/// The four numbers we compare for each game.
+enum Metric { current, avg30d, avg6m, peak }
 
 /// Picks a game's value for [metric], or null when that lookup failed.
 double? metricValue(GameStats game, Metric metric) => switch (metric) {
       Metric.current => game.current?.toDouble(),
       Metric.avg30d => game.avg30d,
       Metric.avg6m => game.avg6m,
+      Metric.peak => game.peakAllTime?.toDouble(),
     };
 
 /// Human-readable name for a metric.
@@ -122,6 +146,7 @@ String metricLabel(Metric metric) => switch (metric) {
       Metric.current => 'Current players',
       Metric.avg30d => '30-day average',
       Metric.avg6m => '6-month average',
+      Metric.peak => 'All-time peak',
     };
 
 /// Human-readable name for a camp.
@@ -225,13 +250,19 @@ class OverallSummary {
   }
 
   /// The metric with the largest relative gap between the two camps — the one
-  /// that most separates them. A gap the percentages cannot express (a camp at
-  /// zero) counts as the widest possible. Ties keep the earliest metric.
+  /// that most separates them. A metric the two camps tie on is not a gap and
+  /// is skipped; a gap the percentages cannot express (a camp at zero) counts
+  /// as the widest possible. Ties keep the earliest metric.
   MetricSummary get decidingMetric {
+    double gap(MetricSummary summary) {
+      if (summary.leader == null) return -1;
+      return summary.marginPercent ?? double.infinity;
+    }
+
     var best = summaries.first;
-    var bestScore = best.marginPercent ?? double.infinity;
+    var bestScore = gap(best);
     for (final summary in summaries.skip(1)) {
-      final score = summary.marginPercent ?? double.infinity;
+      final score = gap(summary);
       if (score > bestScore) {
         best = summary;
         bestScore = score;

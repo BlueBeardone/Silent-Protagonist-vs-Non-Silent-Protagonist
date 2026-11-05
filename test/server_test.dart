@@ -17,6 +17,7 @@ void main() {
               current: 15269,
               avg30d: 22428.18,
               avg6m: 29000.0,
+              peakAllTime: 952523,
             ),
             GameStats(
               name: 'GTA V',
@@ -45,6 +46,7 @@ void main() {
           'current': 15269,
           'avg30d': 22428.18,
           'avg6m': 29000.0,
+          'peakAllTime': 952523,
         },
         {
           'name': 'GTA V',
@@ -53,6 +55,7 @@ void main() {
           'current': null,
           'avg30d': 47137.17,
           'avg6m': null,
+          'peakAllTime': null,
         },
       ]);
     });
