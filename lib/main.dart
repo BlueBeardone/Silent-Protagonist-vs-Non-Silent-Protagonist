@@ -94,7 +94,7 @@ class _HomePageState extends State<HomePage> {
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Text(
-                  'Current players (solid) vs 30-day average (light)',
+                  'Current players (solid) vs 30-day (light) vs 6-month (lightest)',
                   style: TextStyle(fontSize: 13, color: Colors.white70),
                 ),
               ),

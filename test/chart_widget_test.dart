@@ -34,7 +34,24 @@ void main() {
     expect(find.text('GTA V'), findsOneWidget);
   });
 
-  testWidgets('shows a dash when a metric could not be fetched',
+  testWidgets('shows a bar for current, 30-day, and six-month values',
+      (tester) async {
+    await tester.pumpWidget(host(const [
+      GameStats(
+          name: 'Valheim',
+          camp: Camp.silent,
+          appid: 892970,
+          current: 1000,
+          avg30d: 2000,
+          avg6m: 3000),
+    ]));
+
+    expect(find.text('1,000'), findsOneWidget);
+    expect(find.text('2,000'), findsOneWidget);
+    expect(find.text('3,000'), findsOneWidget);
+  });
+
+  testWidgets('shows a dash for each metric that could not be fetched',
       (tester) async {
     await tester.pumpWidget(host(const [
       GameStats(
@@ -42,9 +59,12 @@ void main() {
           camp: Camp.nonSilent,
           appid: 1593500,
           current: null,
-          avg30d: 2100.0),
+          avg30d: 2100.0,
+          avg6m: null),
     ]));
 
-    expect(find.text('—'), findsOneWidget);
+    // current and avg6m failed; only avg30d fetched, so two dashes.
+    expect(find.text('—'), findsNWidgets(2));
+    expect(find.text('2,100'), findsOneWidget);
   });
 }

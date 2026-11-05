@@ -16,6 +16,7 @@ void main() {
               appid: 1245620,
               current: 15269,
               avg30d: 22428.18,
+              avg6m: 29000.0,
             ),
             GameStats(
               name: 'GTA V',
@@ -24,6 +25,7 @@ void main() {
               // Failed lookups stay null so the UI can dash them.
               current: null,
               avg30d: 47137.17,
+              avg6m: null,
             ),
           ]);
 
@@ -42,6 +44,7 @@ void main() {
           'appid': 1245620,
           'current': 15269,
           'avg30d': 22428.18,
+          'avg6m': 29000.0,
         },
         {
           'name': 'GTA V',
@@ -49,6 +52,7 @@ void main() {
           'appid': 271590,
           'current': null,
           'avg30d': 47137.17,
+          'avg6m': null,
         },
       ]);
     });

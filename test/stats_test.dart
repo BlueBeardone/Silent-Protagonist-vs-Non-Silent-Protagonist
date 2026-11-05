@@ -69,6 +69,71 @@ void main() {
     });
   });
 
+  group('parseSteamCharts6mAvg', () {
+    // Real structure: "Last 30 Days" is a separate running row, so it must not
+    // be counted as one of the six monthly rows.
+    const html = '''
+      <table class="common-table">
+        <tbody>
+          <tr><td class="month-cell left italic">Last 30 Days</td>
+              <td class="right num-f italic">999.00</td></tr>
+          <tr><td class="month-cell left">October 2026</td>
+              <td class="right num-f">10.00</td></tr>
+          <tr><td class="month-cell left">September 2026</td>
+              <td class="right num-f">20.00</td></tr>
+          <tr><td class="month-cell left">August 2026</td>
+              <td class="right num-f">30.00</td></tr>
+          <tr><td class="month-cell left">July 2026</td>
+              <td class="right num-f">40.00</td></tr>
+          <tr><td class="month-cell left">June 2026</td>
+              <td class="right num-f">50.00</td></tr>
+          <tr><td class="month-cell left">May 2026</td>
+              <td class="right num-f">60.00</td></tr>
+          <tr><td class="month-cell left">April 2026</td>
+              <td class="right num-f">1000.00</td></tr>
+        </tbody>
+      </table>
+      ''';
+
+    test('averages the last six monthly rows, ignoring Last 30 Days', () {
+      // (10 + 20 + 30 + 40 + 50 + 60) / 6 = 35; the 7th month and the
+      // "Last 30 Days" 999 are both excluded.
+      expect(parseSteamCharts6mAvg(html), 35.0);
+    });
+
+    test('reads a different set of months (not a constant)', () {
+      const other = '''
+        <table><tbody>
+        <tr><td class="month-cell left italic">Last 30 Days</td>
+            <td class="right num-f italic">1.00</td></tr>
+        <tr><td class="month-cell left">June 2026</td>
+            <td class="right num-f">100.00</td></tr>
+        <tr><td class="month-cell left">May 2026</td>
+            <td class="right num-f">200.00</td></tr>
+        <tr><td class="month-cell left">April 2026</td>
+            <td class="right num-f">300.00</td></tr>
+        <tr><td class="month-cell left">March 2026</td>
+            <td class="right num-f">400.00</td></tr>
+        <tr><td class="month-cell left">February 2026</td>
+            <td class="right num-f">500.00</td></tr>
+        <tr><td class="month-cell left">January 2026</td>
+            <td class="right num-f">600.00</td></tr>
+        </tbody></table>
+        ''';
+      expect(parseSteamCharts6mAvg(other), 350.0);
+    });
+
+    test('throws when there are no monthly rows', () {
+      const noMonths = '''
+        <table><tbody>
+        <tr><td class="month-cell left italic">Last 30 Days</td>
+            <td class="right num-f italic">999.00</td></tr>
+        </tbody></table>
+        ''';
+      expect(() => parseSteamCharts6mAvg(noMonths), throwsA(isA<Exception>()));
+    });
+  });
+
   group('games', () {
     test('has fifteen games on each side of the spectrum', () {
       final silent = games.where((g) => g.camp == Camp.silent);
@@ -90,7 +155,7 @@ void main() {
     test('rebuilds every game, keeping missing numbers null', () {
       const body = '['
           '{"name":"GTA V","camp":"nonSilent","appid":271590,'
-          '"current":24649,"avg30d":47137.17},'
+          '"current":24649,"avg30d":47137.17,"avg6m":38000.5},'
           '{"name":"God of War","camp":"nonSilent","appid":1593500,'
           '"current":null,"avg30d":null}'
           ']';
@@ -103,9 +168,11 @@ void main() {
       expect(result.first.appid, 271590);
       expect(result.first.current, 24649);
       expect(result.first.avg30d, 47137.17);
+      expect(result.first.avg6m, 38000.5);
       expect(result[1].name, 'God of War');
       expect(result[1].current, isNull);
       expect(result[1].avg30d, isNull);
+      expect(result[1].avg6m, isNull);
     });
   });
 }

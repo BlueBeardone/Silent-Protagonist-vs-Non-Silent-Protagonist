@@ -4,8 +4,9 @@ This repo is about how a silent protagonist game compares to a non-silent
 protagonist game. "Silent" here means a blank-slate, self-insert protagonist:
 you create the character and you are the character. "Non-silent" means an
 authored lead with a fixed name, voice, and story you follow. It shows a bar
-chart of **current concurrent players** and **30-day average players** for
-fifteen games on each side, so you can eyeball which camp is being played more.
+chart of **current concurrent players**, **30-day average players**, and
+**6-month average players** for fifteen games on each side, so you can eyeball
+which camp is being played more.
 
 - Silent protagonists (self-insert): Dark Souls Remastered, Elden Ring, Dark
   Souls III, Monster Hunter: World, Skyrim Special Edition, Fallout: New Vegas,
@@ -32,6 +33,7 @@ directly. The small Dart proxy in `lib/server.dart` (entrypoint
 
 - Live players: Steam `ISteamUserStats/GetNumberOfCurrentPlayers`
 - 30-day average: the "Last 30 Days" row scraped from `steamcharts.com`
+- 6-month average: the last six monthly rows on `steamcharts.com`, averaged
 - A failed lookup stays `null` and the UI shows a dash.
 
 ## Run it

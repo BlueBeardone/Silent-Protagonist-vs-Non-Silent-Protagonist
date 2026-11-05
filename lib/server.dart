@@ -45,6 +45,7 @@ Future<List<GameStats>> fetchLiveStats() async {
 Future<GameStats> _fetchOne(http.Client client, GameStats game) async {
   int? current;
   double? avg30d;
+  double? avg6m;
 
   try {
     final response = await client.get(Uri.parse(
@@ -63,6 +64,11 @@ Future<GameStats> _fetchOne(http.Client client, GameStats game) async {
     );
     if (response.statusCode == 200) {
       avg30d = parseSteamChartsAvg(response.body);
+      try {
+        avg6m = parseSteamCharts6mAvg(response.body);
+      } catch (_) {
+        // Leave avg6m null; the UI shows a dash.
+      }
     }
   } catch (_) {
     // Leave avg30d null; the UI shows a dash.
@@ -74,5 +80,6 @@ Future<GameStats> _fetchOne(http.Client client, GameStats game) async {
     appid: game.appid,
     current: current,
     avg30d: avg30d,
+    avg6m: avg6m,
   );
 }

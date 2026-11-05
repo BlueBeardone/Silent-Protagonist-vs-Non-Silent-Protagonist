@@ -35,11 +35,35 @@ double parseSteamChartsAvg(String body) {
   throw FormatException('No "Last 30 Days" row in SteamCharts page');
 }
 
+/// Averages the last six monthly "Avg. Players" rows of a SteamCharts page.
+///
+/// The running "Last 30 Days" row is not a calendar month, so it is skipped;
+/// once six months are collected any older rows are ignored. Months the page
+/// reports without a parseable number are skipped rather than counted. Throws
+/// when the page has no monthly rows at all.
+double parseSteamCharts6mAvg(String body) {
+  final document = html_parser.parse(body);
+  final months = <double>[];
+  for (final cell in document.querySelectorAll('td.month-cell')) {
+    if (cell.text.trim() == 'Last 30 Days') continue;
+    final avgText = cell.parent?.querySelector('td.num-f')?.text.trim();
+    final value = double.tryParse(avgText ?? '');
+    if (value == null) continue;
+    months.add(value);
+    if (months.length == 6) break;
+  }
+  if (months.isEmpty) {
+    throw FormatException('No monthly rows in SteamCharts page');
+  }
+  return months.reduce((a, b) => a + b) / months.length;
+}
+
 /// Which camp a game belongs to for the comparison.
 enum Camp { silent, nonSilent }
 
-/// One game's numbers. [current] and [avg30d] are null when their source
-/// lookup failed, so the UI can show a dash instead of a misleading zero.
+/// One game's numbers. [current], [avg30d] and [avg6m] are null when their
+/// source lookup failed, so the UI can show a dash instead of a misleading
+/// zero.
 class GameStats {
   const GameStats({
     required this.name,
@@ -47,6 +71,7 @@ class GameStats {
     required this.appid,
     this.current,
     this.avg30d,
+    this.avg6m,
   });
 
   final String name;
@@ -54,6 +79,7 @@ class GameStats {
   final int appid;
   final int? current;
   final double? avg30d;
+  final double? avg6m;
 
   Map<String, dynamic> toJson() => {
         'name': name,
@@ -61,6 +87,7 @@ class GameStats {
         'appid': appid,
         'current': current,
         'avg30d': avg30d,
+        'avg6m': avg6m,
       };
 }
 
@@ -75,6 +102,7 @@ List<GameStats> parseStatsResponse(String body) {
         appid: item['appid'] as int,
         current: item['current'] as int?,
         avg30d: (item['avg30d'] as num?)?.toDouble(),
+        avg6m: (item['avg6m'] as num?)?.toDouble(),
       ),
   ];
 }
