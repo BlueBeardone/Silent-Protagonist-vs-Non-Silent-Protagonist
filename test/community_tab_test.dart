@@ -14,9 +14,10 @@ void main() {
   testWidgets('rejects a blank email', (tester) async {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: CommunityTab(api: apiReturning([])))));
     await tester.enterText(find.byKey(const Key('comment')), 'nice');
+    expect(find.text('Please enter your email address.'), findsNothing);
     await tester.tap(find.text('Post'));
     await tester.pump();
-    expect(find.textContaining('email'), findsWidgets);
+    expect(find.text('Please enter your email address.'), findsOneWidget);
   });
 
   testWidgets('shows comments with masked emails behind the button', (tester) async {
