@@ -144,3 +144,5 @@ app.*.symbols
 # pubspec.lock MUST be committed for applications (reproducible builds).
 # This overrides the framework-oriented "*.lock" rule near the top.
 !pubspec.lock
+# Superpowers brainstorm mockups
+.superpowers/
