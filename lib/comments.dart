@@ -3,6 +3,8 @@
 /// arguments and never touch the network or the widget tree.
 library;
 
+import 'package:mongo_dart/mongo_dart.dart';
+
 /// A conservative address shape: something before the `@`, a dotted domain,
 /// and a TLD of at least two letters. Deliberately stricter than RFC 5322 —
 /// this only needs to catch obvious typos, not every legal address.
@@ -139,5 +141,96 @@ class InMemoryCommentsStore implements CommentsStore {
     if (index < 0) return false;
     _comments.removeAt(index);
     return true;
+  }
+}
+
+/// Builds the BSON document persisted for a new comment.
+///
+/// `createdAt` is a native [DateTime] so the driver stores it as a BSON date,
+/// which both range queries ([MongoCommentsStore.recent]) and the
+/// `{ createdAt: -1 }` index rely on.
+Map<String, dynamic> commentToMongo({
+  required String email,
+  required String comment,
+  required DateTime createdAt,
+}) =>
+    {
+      'email': email,
+      'comment': comment,
+      'createdAt': createdAt,
+    };
+
+/// Rebuilds a [Comment] from a MongoDB document.
+///
+/// The `_id` is exposed as the hex string the HTTP layer uses in URLs and that
+/// [MongoCommentsStore.deleteById] parses back. The driver hands us an
+/// [ObjectId] for stored documents, whose `toString()` is
+/// `ObjectId("…")` — not the hex form the API contract requires — so the hex
+/// [ObjectId.oid] is used in that case. A plain string id (as in the mapping
+/// test) is stringified directly.
+Comment commentFromMongo(Map<String, dynamic> doc) {
+  final rawId = doc['_id'];
+  final id = rawId is ObjectId ? rawId.oid : rawId.toString();
+  return Comment(
+    id: id,
+    email: doc['email'] as String,
+    comment: doc['comment'] as String,
+    createdAt: doc['createdAt'] as DateTime,
+  );
+}
+
+/// A [CommentsStore] backed by a MongoDB `comments` collection.
+///
+/// Intended for the server entrypoint (Task 6); it is not exercised by unit
+/// tests, which never touch a live database.
+class MongoCommentsStore implements CommentsStore {
+  MongoCommentsStore(this._comments);
+
+  final DbCollection _comments;
+
+  /// Opens [uri], ensures the `{ createdAt: -1 }` index used by [recent], and
+  /// returns a store over the `comments` collection.
+  static Future<MongoCommentsStore> connect(String uri) async {
+    final db = await Db.create(uri);
+    await db.open();
+    final comments = db.collection('comments');
+    await comments.createIndex(keys: {'createdAt': -1});
+    return MongoCommentsStore(comments);
+  }
+
+  @override
+  Future<Comment> add({required String email, required String comment}) async {
+    final createdAt = DateTime.now().toUtc();
+    final doc = commentToMongo(
+      email: email,
+      comment: comment,
+      createdAt: createdAt,
+    );
+    final result = await _comments.insertOne(doc);
+    return commentFromMongo({'_id': result.id, ...doc});
+  }
+
+  @override
+  Future<List<Comment>> recent({int limit = 50, String? before}) async {
+    var selector = where.sortBy('createdAt', descending: true).limit(limit);
+    if (before != null) {
+      selector = selector.lt('createdAt', DateTime.parse(before));
+    }
+    final docs = await _comments.find(selector).toList();
+    return docs.map(commentFromMongo).toList();
+  }
+
+  @override
+  Future<bool> deleteById(String id) async {
+    final ObjectId oid;
+    try {
+      oid = ObjectId.fromHexString(id);
+    } on ArgumentError {
+      // A malformed id is a miss, not a server error: the DELETE route turns
+      // `false` into a 404 and must never surface a 500.
+      return false;
+    }
+    final result = await _comments.deleteOne(where.id(oid));
+    return result.nRemoved > 0;
   }
 }

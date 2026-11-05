@@ -63,4 +63,18 @@ void main() {
       expect(await store.deleteById(first.id), isFalse);
     });
   });
+
+  group('mongo mapping', () {
+    test('round-trips a document', () {
+      final doc = commentToMongo(
+        email: 'barry@gmail.com',
+        comment: 'hi',
+        createdAt: DateTime.utc(2026, 11, 5, 12),
+      );
+      final back = commentFromMongo({'_id': 'abc', ...doc});
+      expect(back.email, 'barry@gmail.com');
+      expect(back.comment, 'hi');
+      expect(back.createdAt, DateTime.utc(2026, 11, 5, 12));
+    });
+  });
 }
