@@ -117,3 +117,30 @@ app.*.symbols
 !**/ios/**/default.perspectivev3
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 !/dev/ci/**/Gemfile.lock
+
+# ---------------------------------------------------------------------------
+# Application-level ignores
+# This repo is a Flutter application, not the Flutter SDK itself, so the
+# framework-oriented rules above need these additions/tweaks.
+# ---------------------------------------------------------------------------
+
+# IntelliJ / Android Studio
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code (launch.json and tasks.json are worth committing; uncomment to opt in)
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# macOS
+.DS_Store
+
+# Swift Package Manager
+**/.swiftpm/
+
+# pubspec.lock MUST be committed for applications (reproducible builds).
+# This overrides the framework-oriented "*.lock" rule near the top.
+!pubspec.lock
