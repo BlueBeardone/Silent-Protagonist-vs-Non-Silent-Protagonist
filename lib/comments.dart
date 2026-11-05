@@ -56,3 +56,88 @@ String? validateComment(String comment) {
   }
   return null;
 }
+
+/// A single community comment as stored and displayed.
+///
+/// The [email] is kept in full internally for persistence, but [toJson] only
+/// ever emits the masked form, so the full address never leaves the app.
+class Comment {
+  final String id;
+  final String email;
+  final String comment;
+  final DateTime createdAt;
+
+  Comment({
+    required this.id,
+    required this.email,
+    required this.comment,
+    required this.createdAt,
+  });
+
+  /// A JSON-safe view of this comment. `email` is masked via [maskEmail] and
+  /// `createdAt` is a UTC ISO-8601 string.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'email': maskEmail(email),
+        'comment': comment,
+        'createdAt': createdAt.toUtc().toIso8601String(),
+      };
+}
+
+/// Persistence boundary for community comments.
+abstract class CommentsStore {
+  /// Persists a new comment and returns it with its generated id and
+  /// `createdAt` timestamp.
+  Future<Comment> add({required String email, required String comment});
+
+  /// Returns up to [limit] comments, newest first. When [before] is given,
+  /// only comments strictly older than that timestamp are returned.
+  Future<List<Comment>> recent({int limit = 50, String? before});
+
+  /// Removes the comment with [id]; returns whether anything was removed.
+  Future<bool> deleteById(String id);
+}
+
+/// A [CommentsStore] that keeps everything in memory. Intended for tests and
+/// local development; nothing survives a restart.
+class InMemoryCommentsStore implements CommentsStore {
+  InMemoryCommentsStore();
+
+  final List<Comment> _comments = <Comment>[];
+  int _nextId = 0;
+
+  @override
+  Future<Comment> add({required String email, required String comment}) async {
+    final created = Comment(
+      id: (_nextId++).toString(),
+      email: email,
+      comment: comment,
+      createdAt: DateTime.now().toUtc(),
+    );
+    _comments.add(created);
+    return created;
+  }
+
+  @override
+  Future<List<Comment>> recent({int limit = 50, String? before}) async {
+    final beforeTime = before == null ? null : DateTime.parse(before);
+    final indexed = _comments.indexed
+        .where((entry) =>
+            beforeTime == null || entry.$2.createdAt.isBefore(beforeTime))
+        .toList()
+      ..sort((a, b) {
+        final byTime = b.$2.createdAt.compareTo(a.$2.createdAt);
+        if (byTime != 0) return byTime;
+        return b.$1.compareTo(a.$1);
+      });
+    return indexed.take(limit).map((entry) => entry.$2).toList();
+  }
+
+  @override
+  Future<bool> deleteById(String id) async {
+    final index = _comments.indexWhere((c) => c.id == id);
+    if (index < 0) return false;
+    _comments.removeAt(index);
+    return true;
+  }
+}
