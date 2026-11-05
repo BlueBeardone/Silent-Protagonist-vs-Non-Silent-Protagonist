@@ -149,3 +149,6 @@ app.*.symbols
 !pubspec.lock
 # Superpowers brainstorm mockups
 .superpowers/
+
+# Design/plan documents (kept locally, not tracked)
+docs/
