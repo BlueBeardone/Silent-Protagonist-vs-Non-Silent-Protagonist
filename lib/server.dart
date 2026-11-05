@@ -27,8 +27,9 @@ const int _maxPageSize = 100;
 /// - `DELETE /api/comments/<id>` — remove a comment (admin token required).
 ///
 /// [allowedOrigin] is echoed as `access-control-allow-origin` on every
-/// response (including errors); it defaults to `*` for the cross-port Flutter
-/// web app. Pass `null` to omit the header entirely.
+/// response (including errors) when explicitly configured. It defaults to
+/// `null`, which omits the header: production is same-origin, so granting a
+/// CORS origin is opt-in for local development only.
 ///
 /// [trustedProxyHops] is the number of reverse proxies in front of this server.
 /// Only when it is greater than zero is `x-forwarded-for` consulted, taking the
@@ -38,13 +39,19 @@ Handler commentsHandler({
   required CommentsStore store,
   required RateLimiter writeLimiter,
   required RateLimiter readLimiter,
-  String? allowedOrigin = '*',
+  String? allowedOrigin,
   String adminToken = '',
   int trustedProxyHops = 0,
 }) {
   final router = Router();
 
   router.post('/api/comments', (Request request) async {
+    // Rate-limit first so a flood of invalid or oversized bodies still
+    // consumes quota and cannot be used to bypass the limiter.
+    if (!writeLimiter.allow(_clientIp(request, trustedProxyHops))) {
+      return _jsonError(429, 'Too many requests. Please slow down.');
+    }
+
     if (!_isJson(request)) {
       return _jsonError(415, 'Content-Type must be application/json.');
     }
@@ -95,11 +102,6 @@ Handler commentsHandler({
     if (emailError != null) return _jsonError(400, emailError);
     final commentError = validateComment(comment);
     if (commentError != null) return _jsonError(400, commentError);
-
-    // Rate-limit after validation so rejected input doesn't consume quota.
-    if (!writeLimiter.allow(_clientIp(request, trustedProxyHops))) {
-      return _jsonError(429, 'Too many requests. Please slow down.');
-    }
 
     final saved = await store.add(
       email: email.trim(),

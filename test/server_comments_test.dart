@@ -10,6 +10,7 @@ Handler build({String adminToken = 'secret'}) => commentsHandler(
       store: InMemoryCommentsStore(),
       writeLimiter: RateLimiter(maxRequests: 5, window: const Duration(minutes: 10)),
       readLimiter: RateLimiter(maxRequests: 60, window: const Duration(minutes: 1)),
+      allowedOrigin: 'http://localhost',
       adminToken: adminToken,
     );
 
@@ -30,7 +31,6 @@ void main() {
   });
 
   test('rejects bad input with 400, never 500', () async {
-    final handler = build();
     for (final body in [
       {'comment': 'no email'},
       {'email': 'nope', 'comment': 'x'},
@@ -39,6 +39,7 @@ void main() {
       {'email': 5, 'comment': 'x'},
       {'email': 'a@x.com', 'comment': 'x', r'$where': '1'},
     ]) {
+      final handler = build();
       expect((await handler(post(body))).statusCode, 400, reason: '$body');
     }
   });
