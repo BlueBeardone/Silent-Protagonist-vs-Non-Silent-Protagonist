@@ -48,15 +48,44 @@ String? validateEmail(String email) {
   return null;
 }
 
+/// Strips control characters from [comment] and trims the result.
+///
+/// Control characters (code points below `0x20`) are removed except for the
+/// newline (`\n`), and `0x7F` (DELETE) is removed too. The spec requires this
+/// so that a comment cannot carry terminal escapes or other invisible control
+/// bytes into storage or display.
+String sanitizeComment(String comment) {
+  final buffer = StringBuffer();
+  for (final rune in comment.runes) {
+    if (rune == 0x0A || (rune >= 0x20 && rune != 0x7F)) {
+      buffer.writeCharCode(rune);
+    }
+  }
+  return buffer.toString().trim();
+}
+
 /// Returns null when [comment] is a valid comment, else a human-readable
-/// reason it was rejected. The comment is trimmed before checking.
+/// reason it was rejected. The comment is sanitized (control characters
+/// stripped) and trimmed before checking, so a comment made only of control
+/// characters is rejected as empty.
 String? validateComment(String comment) {
-  final trimmed = comment.trim();
-  if (trimmed.isEmpty) return 'Please enter a comment.';
-  if (trimmed.length > _maxCommentLength) {
+  final sanitized = sanitizeComment(comment);
+  if (sanitized.isEmpty) return 'Please enter a comment.';
+  if (sanitized.length > _maxCommentLength) {
     return 'Comment must be $_maxCommentLength characters or fewer.';
   }
   return null;
+}
+
+/// Signals that the comments backend is unreachable. The HTTP handler lets
+/// this propagate so the availability middleware can translate it to a `503`.
+class CommentsUnavailableException implements Exception {
+  CommentsUnavailableException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'CommentsUnavailableException: $message';
 }
 
 /// A single community comment as stored and displayed.

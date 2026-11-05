@@ -22,4 +22,23 @@ void main() {
     expect(limiter.allow('b'), isTrue);
     expect(limiter.allow('a'), isFalse);
   });
+
+  test('evicts keys whose newest timestamp has aged out of the window', () {
+    var clock = DateTime.utc(2026, 11, 5, 12);
+    final limiter = RateLimiter(
+      maxRequests: 1,
+      window: const Duration(minutes: 10),
+      now: () => clock,
+    );
+    expect(limiter.allow('a'), isTrue);
+    expect(limiter.allow('b'), isTrue);
+    expect(limiter.trackedKeys, 2);
+
+    clock = clock.add(const Duration(minutes: 11));
+    expect(limiter.allow('c'), isTrue);
+    // `a` and `b` are older than the window and were swept; only `c` remains.
+    expect(limiter.trackedKeys, 1);
+    // The aged-out key is allowed again, proving its entry was dropped.
+    expect(limiter.allow('a'), isTrue);
+  });
 }

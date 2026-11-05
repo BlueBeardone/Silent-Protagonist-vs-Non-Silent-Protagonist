@@ -17,18 +17,6 @@ const Duration _writeWindow = Duration(minutes: 10);
 const int _readLimit = 60;
 const Duration _readWindow = Duration(minutes: 1);
 
-/// Signals that the comments backend is unreachable. Thrown by
-/// [LazyMongoCommentsStore] and translated to a `503` by
-/// [commentsAvailabilityMiddleware].
-class CommentsUnavailableException implements Exception {
-  CommentsUnavailableException(this.message);
-
-  final String message;
-
-  @override
-  String toString() => 'CommentsUnavailableException: $message';
-}
-
 /// A [CommentsStore] that opens its MongoDB connection lazily and retries after
 /// a failure.
 ///
@@ -63,8 +51,10 @@ class LazyMongoCommentsStore implements CommentsStore {
       final store = await MongoCommentsStore.connect(_uri);
       _store = store;
       return store;
-    } catch (error) {
-      throw CommentsUnavailableException('Could not connect to MongoDB: $error');
+    } catch (_) {
+      // Keep the raw driver error out of the message: it can embed the
+      // connection URI (with credentials).
+      throw CommentsUnavailableException('Could not connect to MongoDB.');
     } finally {
       _connecting = null;
     }
@@ -78,11 +68,12 @@ class LazyMongoCommentsStore implements CommentsStore {
       return await action(store);
     } on CommentsUnavailableException {
       rethrow;
-    } catch (error) {
+    } catch (_) {
       // A failure mid-operation likely means the connection dropped; forget it
-      // so the next request reconnects instead of reusing a dead client.
+      // so the next request reconnects instead of reusing a dead client. The
+      // raw error is not surfaced: it can embed the connection URI.
       _store = null;
-      throw CommentsUnavailableException('Comments store unavailable: $error');
+      throw CommentsUnavailableException('Comments store unavailable.');
     }
   }
 

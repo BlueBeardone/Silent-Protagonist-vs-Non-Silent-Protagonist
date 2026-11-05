@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:shelf/shelf.dart';
@@ -65,12 +66,13 @@ Handler commentsHandler({
 
     final String raw;
     try {
-      raw = await request.readAsString();
+      raw = await _readBodyWithinLimit(request);
+    } on _BodyTooLargeException {
+      return _jsonError(413, 'Request body is too large.');
+    } on FormatException {
+      return _jsonError(400, 'Request body must be valid JSON.');
     } catch (_) {
       return _jsonError(400, 'Could not read the request body.');
-    }
-    if (utf8.encode(raw).length > _maxCommentBodyBytes) {
-      return _jsonError(413, 'Request body is too large.');
     }
 
     final Object? decoded;
@@ -105,7 +107,7 @@ Handler commentsHandler({
 
     final saved = await store.add(
       email: email.trim(),
-      comment: comment.trim(),
+      comment: sanitizeComment(comment),
     );
     return _json(201, saved.toJson());
   });
@@ -124,7 +126,9 @@ Handler commentsHandler({
     final List<Comment> comments;
     try {
       comments = await store.recent(limit: limit, before: before);
-    } catch (_) {
+    } on FormatException {
+      return _jsonError(400, 'Invalid cursor.');
+    } on ArgumentError {
       return _jsonError(400, 'Invalid cursor.');
     }
 
@@ -137,6 +141,11 @@ Handler commentsHandler({
   });
 
   router.delete('/api/comments/<id>', (Request request, String id) async {
+    // Rate-limit DELETE too: without this the admin token could be brute
+    // forced at unlimited speed.
+    if (!readLimiter.allow(_clientIp(request, trustedProxyHops))) {
+      return _jsonError(429, 'Too many requests. Please slow down.');
+    }
     if (adminToken.isEmpty ||
         !_constantTimeEquals(request.headers['x-admin-token'], adminToken)) {
       return _jsonError(401, 'Unauthorized.');
@@ -150,9 +159,35 @@ Handler commentsHandler({
     final response = await routerHandler(request);
     if (allowedOrigin == null) return response;
     return response.change(
-      headers: {'access-control-allow-origin': allowedOrigin},
+      headers: {
+        'access-control-allow-origin': allowedOrigin,
+        // The response depends on the request's Origin, so caches must key on
+        // it rather than reusing one origin's response for another.
+        'vary': 'Origin',
+      },
     );
   };
+}
+
+/// Thrown by [_readBodyWithinLimit] when the streamed body crosses the cap.
+class _BodyTooLargeException implements Exception {}
+
+/// Reads [request]'s body as a stream, accumulating at most
+/// [_maxCommentBodyBytes] bytes, and returns it decoded as UTF-8.
+///
+/// Consuming the stream chunk by chunk (rather than buffering the whole body
+/// first) means a `Transfer-Encoding: chunked` request with no
+/// `content-length` cannot force an unbounded allocation: the read aborts with
+/// [_BodyTooLargeException] as soon as the cap is crossed.
+Future<String> _readBodyWithinLimit(Request request) async {
+  final builder = BytesBuilder(copy: false);
+  await for (final chunk in request.read()) {
+    builder.add(chunk);
+    if (builder.length > _maxCommentBodyBytes) {
+      throw _BodyTooLargeException();
+    }
+  }
+  return utf8.decode(builder.takeBytes());
 }
 
 /// Whether [request] declares a JSON content type.
@@ -177,9 +212,16 @@ Response _jsonError(int status, String message) =>
 /// Resolves the client address for rate limiting.
 ///
 /// `x-forwarded-for` is trusted only when [trustedProxyHops] is positive, in
-/// which case the hop-th entry from the end of the chain is used. The value is
+/// which case the hop-th entry from the end of the chain is used. When the
+/// header carries fewer entries than the trusted hop count, the header is
+/// ignored and the socket address is used instead — trusting a shorter,
+/// client-controlled chain would let a caller choose its own key. The value is
 /// otherwise read from the connection info; when neither is available (for
 /// example in tests) a constant key is returned so every request shares it.
+///
+/// IPv6 addresses are collapsed to their `/64` prefix so a single host cannot
+/// rotate addresses within its prefix to bypass the limit. IPv4 addresses are
+/// returned unchanged.
 String _clientIp(Request request, int trustedProxyHops) {
   if (trustedProxyHops > 0) {
     final forwarded = request.headers['x-forwarded-for'];
@@ -189,10 +231,9 @@ String _clientIp(Request request, int trustedProxyHops) {
           .map((entry) => entry.trim())
           .where((entry) => entry.isNotEmpty)
           .toList();
-      if (hops.isNotEmpty) {
-        final index = hops.length - trustedProxyHops;
-        return index >= 0 ? hops[index] : hops.first;
-      }
+      final index = hops.length - trustedProxyHops;
+      if (index >= 0) return _normalizeIp(hops[index]);
+      // Fewer entries than trusted hops: fall through to the socket IP.
     }
   }
 
@@ -201,12 +242,53 @@ String _clientIp(Request request, int trustedProxyHops) {
     try {
       final address = (info as dynamic).remoteAddress;
       final value = (address as dynamic)?.address;
-      if (value is String && value.isNotEmpty) return value;
+      if (value is String && value.isNotEmpty) return _normalizeIp(value);
     } catch (_) {
       // Fall through to the constant key below.
     }
   }
   return 'unknown';
+}
+
+/// Collapses an IPv6 address to its `/64` prefix. IPv4 addresses and any value
+/// without a colon are returned unchanged.
+String _normalizeIp(String ip) {
+  if (!ip.contains(':')) return ip;
+  var address = ip.split('%').first;
+
+  // Expand a trailing IPv4 literal (e.g. `::ffff:192.0.2.1`) into hextets.
+  if (address.contains('.')) {
+    final lastColon = address.lastIndexOf(':');
+    final octets = address.substring(lastColon + 1).split('.').map(int.parse).toList();
+    final high = ((octets[0] << 8) | octets[1]).toRadixString(16);
+    final low = ((octets[2] << 8) | octets[3]).toRadixString(16);
+    address = '${address.substring(0, lastColon + 1)}$high:$low';
+  }
+
+  final List<String> hextets;
+  final doubleColon = address.indexOf('::');
+  if (doubleColon >= 0) {
+    final left = address
+        .substring(0, doubleColon)
+        .split(':')
+        .where((part) => part.isNotEmpty)
+        .toList();
+    final right = address
+        .substring(doubleColon + 2)
+        .split(':')
+        .where((part) => part.isNotEmpty)
+        .toList();
+    final missing = 8 - left.length - right.length;
+    hextets = [...left, ...List.filled(missing < 0 ? 0 : missing, '0'), ...right];
+  } else {
+    hextets = address.split(':');
+  }
+
+  final prefix = hextets
+      .take(4)
+      .map((part) => part.isEmpty ? '0' : part.toLowerCase())
+      .join(':');
+  return '$prefix::/64';
 }
 
 /// Compares two strings without short-circuiting on the first difference, so

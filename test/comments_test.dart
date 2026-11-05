@@ -36,6 +36,24 @@ void main() {
     test('rejects text over 2000 characters', () {
       expect(validateComment('a' * 2001), isNotNull);
     });
+    test('rejects text made only of control characters', () {
+      expect(validateComment('\u0000\u0007\u0008'), isNotNull);
+    });
+  });
+
+  group('sanitizeComment', () {
+    test('removes control characters but keeps newlines', () {
+      expect(sanitizeComment('a\u0000b\u0007c'), 'abc');
+      expect(sanitizeComment('line1\nline2'), 'line1\nline2');
+      expect(sanitizeComment('tab\there'), 'tabhere');
+      expect(sanitizeComment('del\u007f'), 'del');
+    });
+    test('trims surrounding whitespace', () {
+      expect(sanitizeComment('  hello  '), 'hello');
+    });
+    test('leaves ordinary unicode intact', () {
+      expect(sanitizeComment('café 🎮'), 'café 🎮');
+    });
   });
 
   group('Comment.toJson', () {
