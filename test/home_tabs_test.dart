@@ -49,4 +49,16 @@ void main() {
     expect(find.text('Silent total'), findsOneWidget);
     expect(find.text('Silent games are more popular overall'), findsOneWidget);
   });
+
+  testWidgets('Community tab is reachable even when stats fail',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(loadStats: () async => throw Exception('steam down')),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Community'), findsOneWidget);
+    await tester.tap(find.text('Community'));
+    await tester.pumpAndSettle();
+    expect(find.text('Post'), findsOneWidget);
+  });
 }

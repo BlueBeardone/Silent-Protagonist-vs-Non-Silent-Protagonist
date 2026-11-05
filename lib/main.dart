@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'chart.dart';
+import 'comments_api.dart';
+import 'community_tab.dart';
 import 'numbers.dart';
 import 'stats.dart';
 
@@ -30,10 +32,14 @@ class App extends StatelessWidget {
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, this.loadStats});
+  const HomePage({super.key, this.loadStats, this.api});
 
   /// Overrides how the stats are fetched; null uses the local proxy.
   final StatsLoader? loadStats;
+
+  /// Overrides the comments client used by the Community tab; null builds a
+  /// real same-origin client.
+  final CommentsApi? api;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -41,6 +47,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late Future<List<GameStats>> _stats;
+  late final CommentsApi _api = widget.api ?? CommentsApi();
 
   @override
   void initState() {
@@ -73,66 +80,97 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: FutureBuilder<List<GameStats>>(
-        future: _stats,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+      body: DefaultTabController(
+        length: 3,
+        child: Column(
+          children: [
+            const TabBar(
+              tabs: [
+                Tab(text: 'Chart'),
+                Tab(text: 'Numbers'),
+                Tab(text: 'Community'),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
                 children: [
-                  const Text('Could not reach the local proxy.'),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Start it with: dart run bin/server.dart',
-                    style: Theme.of(context).textTheme.bodySmall,
+                  _StatsTab(
+                    stats: _stats,
+                    onRetry: _refresh,
+                    builder: (stats) => Column(
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            'Current players (solid) vs 30-day (light) vs 6-month (lightest)',
+                            style:
+                                TextStyle(fontSize: 13, color: Colors.white70),
+                          ),
+                        ),
+                        Expanded(child: ComparisonChart(stats: stats)),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: _refresh,
-                    child: const Text('Retry'),
+                  _StatsTab(
+                    stats: _stats,
+                    onRetry: _refresh,
+                    builder: (stats) => NumbersComparison(stats: stats),
                   ),
+                  CommunityTab(api: _api),
                 ],
               ),
-            );
-          }
-          return DefaultTabController(
-            length: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Renders [builder] with the loaded stats, or this tab's own loading/error
+/// state derived from [stats]. Keeping the state per-tab lets the Community
+/// tab stay reachable even when the stats load fails.
+class _StatsTab extends StatelessWidget {
+  const _StatsTab({
+    required this.stats,
+    required this.onRetry,
+    required this.builder,
+  });
+
+  final Future<List<GameStats>> stats;
+  final VoidCallback onRetry;
+  final Widget Function(List<GameStats> stats) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<GameStats>>(
+      future: stats,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const TabBar(
-                  tabs: [Tab(text: 'Chart'), Tab(text: 'Numbers')],
+                const Text('Could not reach the local proxy.'),
+                const SizedBox(height: 8),
+                Text(
+                  'Start it with: dart run bin/server.dart',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      Column(
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 12),
-                            child: Text(
-                              'Current players (solid) vs 30-day (light) vs 6-month (lightest)',
-                              style: TextStyle(
-                                  fontSize: 13, color: Colors.white70),
-                            ),
-                          ),
-                          Expanded(
-                            child: ComparisonChart(stats: snapshot.data!),
-                          ),
-                        ],
-                      ),
-                      NumbersComparison(stats: snapshot.data!),
-                    ],
-                  ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: onRetry,
+                  child: const Text('Retry'),
                 ),
               ],
             ),
           );
-        },
-      ),
+        }
+        return builder(snapshot.data!);
+      },
     );
   }
 }

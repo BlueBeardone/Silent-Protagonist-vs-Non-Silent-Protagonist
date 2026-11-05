@@ -138,6 +138,9 @@ app.*.symbols
 # macOS
 .DS_Store
 
+# Local secrets / environment (commit .env.example instead)
+.env
+
 # Swift Package Manager
 **/.swiftpm/
 
@@ -146,3 +149,6 @@ app.*.symbols
 !pubspec.lock
 # Superpowers brainstorm mockups
 .superpowers/
+
+# Design/plan documents (kept locally, not tracked)
+docs/
