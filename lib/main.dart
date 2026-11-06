@@ -10,6 +10,10 @@ import 'stats/ui/numbers.dart';
 /// Where the local proxy serves the combined numbers.
 const proxyUrl = 'http://localhost:8080/api/stats';
 
+/// Viewport width at or above which the app uses the wide layout (left
+/// drawer). Narrower screens get the bottom navigation bar.
+const wideBreakpoint = 800.0;
+
 /// Loads the stats shown on the page. Injectable so tests can supply fixtures
 /// without touching the network.
 typedef StatsLoader = Future<List<GameStats>> Function();
@@ -49,6 +53,10 @@ class _HomePageState extends State<HomePage> {
   late Future<List<GameStats>> _stats;
   late final CommentsApi _api = widget.api ?? CommentsApi();
 
+  /// Which destination in the left drawer is showing: 0 chart, 1 numbers,
+  /// 2 community.
+  int _selectedIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -69,6 +77,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.sizeOf(context).width >= wideBreakpoint;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Silent vs Non-Silent Protagonists'),
@@ -80,49 +89,119 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: DefaultTabController(
-        length: 3,
-        child: Column(
-          children: [
-            const TabBar(
-              tabs: [
-                Tab(text: 'Chart'),
-                Tab(text: 'Numbers'),
-                Tab(text: 'Community'),
-              ],
-            ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _StatsTab(
-                    stats: _stats,
-                    onRetry: _refresh,
-                    builder: (stats) => Column(
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          child: Text(
-                            'Current players (solid) vs 30-day (light) vs 6-month (lightest)',
-                            style:
-                                TextStyle(fontSize: 13, color: Colors.white70),
-                          ),
-                        ),
-                        Expanded(child: ComparisonChart(stats: stats)),
-                      ],
-                    ),
-                  ),
-                  _StatsTab(
-                    stats: _stats,
-                    onRetry: _refresh,
-                    builder: (stats) => NumbersComparison(stats: stats),
-                  ),
-                  CommunityTab(api: _api),
-                ],
+      drawer: isWide ? _buildDrawer(context) : null,
+      body: _buildBody(),
+      bottomNavigationBar: isWide ? null : _buildBottomNav(context),
+    );
+  }
+
+  /// The bottom navigation bar shown on narrow screens, mirroring the wide
+  /// drawer's destinations.
+  Widget _buildBottomNav(BuildContext context) {
+    return NavigationBar(
+      selectedIndex: _selectedIndex,
+      onDestinationSelected: (index) =>
+          setState(() => _selectedIndex = index),
+      destinations: const [
+        NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Chart'),
+        NavigationDestination(icon: Icon(Icons.tag), label: 'Numbers'),
+        NavigationDestination(icon: Icon(Icons.forum), label: 'Community'),
+      ],
+    );
+  }
+
+  /// The destination currently chosen in the drawer. Only this one is built,
+  /// matching the old tab behaviour where off-screen tabs did not exist in the
+  /// tree.
+  Widget _buildBody() {
+    switch (_selectedIndex) {
+      case 1:
+        return _StatsTab(
+          stats: _stats,
+          onRetry: _refresh,
+          builder: (stats) => NumbersComparison(stats: stats),
+        );
+      case 2:
+        return CommunityTab(api: _api);
+      default:
+        return _StatsTab(
+          stats: _stats,
+          onRetry: _refresh,
+          builder: (stats) => ComparisonChart(stats: stats),
+        );
+    }
+  }
+
+  /// The left navigation drawer. Choosing an entry switches the shown
+  /// destination and closes the drawer.
+  Widget _buildDrawer(BuildContext context) {
+    final theme = Theme.of(context);
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(color: theme.colorScheme.primaryContainer),
+            child: Align(
+              alignment: Alignment.bottomLeft,
+              child: Text(
+                'Silent vs Non-Silent',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: theme.colorScheme.onPrimaryContainer,
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+          _DrawerEntry(
+            icon: Icons.bar_chart,
+            label: 'Chart',
+            selected: _selectedIndex == 0,
+            onTap: () => _select(0, context),
+          ),
+          _DrawerEntry(
+            icon: Icons.tag,
+            label: 'Numbers',
+            selected: _selectedIndex == 1,
+            onTap: () => _select(1, context),
+          ),
+          _DrawerEntry(
+            icon: Icons.forum,
+            label: 'Community',
+            selected: _selectedIndex == 2,
+            onTap: () => _select(2, context),
+          ),
+        ],
       ),
+    );
+  }
+
+  void _select(int index, BuildContext context) {
+    setState(() => _selectedIndex = index);
+    Navigator.pop(context);
+  }
+}
+
+/// A single row in the navigation drawer.
+class _DrawerEntry extends StatelessWidget {
+  const _DrawerEntry({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(label),
+      selected: selected,
+      onTap: onTap,
     );
   }
 }
