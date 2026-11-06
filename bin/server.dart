@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:dotenv/dotenv.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_static/shelf_static.dart';
@@ -160,7 +161,12 @@ Response _unavailable(String? allowedOrigin) {
 }
 
 Future<void> main(List<String> args) async {
-  final env = Platform.environment;
+  // Load a local `.env` when present so `dart run bin/server.dart` works without
+  // exporting the variables by hand. Real process environment variables are
+  // still included, and a missing `.env` is fine — production supplies them
+  // directly.
+  final env = DotEnv(includePlatformEnvironment: true);
+  if (File('.env').existsSync()) env.load();
 
   final mongoUri = env['MONGODB_URI']?.trim() ?? '';
   if (mongoUri.isEmpty) {

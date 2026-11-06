@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../logic/stats.dart';
 
-double barHeight(double value, double maxValue, double maxHeight) {
+double barLength(double value, double maxValue, double maxLength) {
   if (maxValue <= 0 || value <= 0) return 0;
-  return math.sqrt(value / maxValue) * maxHeight;
+  return math.sqrt(value / maxValue) * maxLength;
 }
 
 Color campColor(Camp camp) => switch (camp) {
@@ -29,11 +29,11 @@ class ComparisonChart extends StatelessWidget {
   const ComparisonChart({
     super.key,
     required this.stats,
-    this.maxBarHeight = 220,
+    this.maxBarWidth = 220,
   });
 
   final List<GameStats> stats;
-  final double maxBarHeight;
+  final double maxBarWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -43,16 +43,15 @@ class ComparisonChart extends StatelessWidget {
     final maxValue = values.isEmpty ? 0.0 : values.reduce(math.max);
 
     return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (final game in stats)
             _GameGroup(
               game: game,
               maxValue: maxValue,
-              maxBarHeight: maxBarHeight,
+              maxBarWidth: maxBarWidth,
             ),
         ],
       ),
@@ -64,67 +63,69 @@ class _GameGroup extends StatelessWidget {
   const _GameGroup({
     required this.game,
     required this.maxValue,
-    required this.maxBarHeight,
+    required this.maxBarWidth,
   });
 
   final GameStats game;
   final double maxValue;
-  final double maxBarHeight;
+  final double maxBarWidth;
 
   @override
   Widget build(BuildContext context) {
     final color = campColor(game.camp);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _Bar(
-                label: formatCount(game.current),
-                value: game.current?.toDouble(),
-                maxValue: maxValue,
-                maxBarHeight: maxBarHeight,
-                color: color,
+              Flexible(
+                child: Text(
+                  game.name,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const SizedBox(width: 4),
-              _Bar(
-                label: formatCount(game.avg30d),
-                value: game.avg30d,
-                maxValue: maxValue,
-                maxBarHeight: maxBarHeight,
-                color: color.withValues(alpha: 0.42),
-              ),
-              const SizedBox(width: 4),
-              _Bar(
-                label: formatCount(game.avg6m),
-                value: game.avg6m,
-                maxValue: maxValue,
-                maxBarHeight: maxBarHeight,
-                color: color.withValues(alpha: 0.22),
+              const SizedBox(width: 8),
+              Text(
+                game.camp == Camp.silent ? 'SILENT' : 'NON-SILENT',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                  color: color,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            width: 90,
-            child: Text(
-              game.name,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
+          _Bar(
+            metricLabel: 'Current',
+            valueLabel: formatCount(game.current),
+            value: game.current?.toDouble(),
+            maxValue: maxValue,
+            maxBarWidth: maxBarWidth,
+            color: color,
           ),
-          const SizedBox(height: 4),
-          Text(
-            game.camp == Camp.silent ? 'SILENT' : 'NON-SILENT',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-              color: color,
-            ),
+          _Bar(
+            metricLabel: '30-day avg',
+            valueLabel: formatCount(game.avg30d),
+            value: game.avg30d,
+            maxValue: maxValue,
+            maxBarWidth: maxBarWidth,
+            color: color.withValues(alpha: 0.42),
+          ),
+          _Bar(
+            metricLabel: '6-month avg',
+            valueLabel: formatCount(game.avg6m),
+            value: game.avg6m,
+            maxValue: maxValue,
+            maxBarWidth: maxBarWidth,
+            color: color.withValues(alpha: 0.22),
           ),
         ],
       ),
@@ -134,35 +135,66 @@ class _GameGroup extends StatelessWidget {
 
 class _Bar extends StatelessWidget {
   const _Bar({
-    required this.label,
+    required this.metricLabel,
+    required this.valueLabel,
     required this.value,
     required this.maxValue,
-    required this.maxBarHeight,
+    required this.maxBarWidth,
     required this.color,
   });
 
-  final String label;
+  final String metricLabel;
+  final String valueLabel;
   final double? value;
   final double maxValue;
-  final double maxBarHeight;
+  final double maxBarWidth;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 10)),
-        const SizedBox(height: 4),
-        Container(
-          width: 22,
-          height: barHeight(value ?? 0, maxValue, maxBarHeight),
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              metricLabel,
+              style: const TextStyle(fontSize: 12),
+            ),
           ),
-        ),
-      ],
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final maxWidth = math.min(constraints.maxWidth, maxBarWidth);
+                final width = barLength(value ?? 0, maxValue, maxWidth);
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    width: width,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: const BorderRadius.horizontal(
+                        right: Radius.circular(3),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 60,
+            child: Text(
+              valueLabel,
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

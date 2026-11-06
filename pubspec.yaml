@@ -40,6 +40,7 @@ dependencies:
   shelf_static: ^1.1.2
   html: ^0.15.7
   mongo_dart: ^0.10.10
+  dotenv: ^4.2.0
 
 dev_dependencies:
   flutter_test:
