@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/chart.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/stats.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/stats/ui/chart.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/stats/logic/stats.dart';
 
 void main() {
   Widget host(List<GameStats> stats) => MaterialApp(

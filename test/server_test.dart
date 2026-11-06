@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shelf/shelf.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/server.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/stats.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/server.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/stats/logic/stats.dart';
 
 void main() {
   group('statsHandler', () {

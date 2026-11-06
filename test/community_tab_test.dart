@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/comments_api.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/community_tab.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/comments/logic/comments_api.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/comments/ui/community_tab.dart';
 
 CommentsApi apiReturning(List<Map<String, dynamic>> comments) => CommentsApi(
       client: MockClient((_) async => http.Response(jsonEncode({'comments': comments}), 200)),

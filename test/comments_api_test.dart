@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/comments_api.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/comments/logic/comments_api.dart';
 
 void main() {
   test('post sends email and comment and parses the reply', () async {

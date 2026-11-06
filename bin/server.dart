@@ -5,9 +5,9 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_static/shelf_static.dart';
 
-import 'package:silent_protagonist_vs_non_silent_protagonist/comments.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/rate_limit.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/server.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/comments/logic/comments.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/rate_limit.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/server.dart';
 
 /// How many comments a single client may create in [writeWindow].
 const int _writeLimit = 5;

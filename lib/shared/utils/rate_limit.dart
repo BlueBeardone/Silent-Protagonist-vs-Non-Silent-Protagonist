@@ -1,13 +1,3 @@
-/// A per-key sliding-window rate limiter.
-///
-/// Each key is counted separately. On every [allow] call, timestamps older
-/// than the configured [window] are dropped, then the request is allowed when
-/// the number of remaining timestamps is below [maxRequests].
-///
-/// State is bounded: a key whose newest timestamp is older than the window is
-/// evicted by a sweep that runs at most once per [window] (or sooner when the
-/// tracked-key count exceeds [_sweepThreshold]). This keeps a public endpoint
-/// with many distinct clients from growing the map without bound.
 class RateLimiter {
   RateLimiter({
     required this.maxRequests,

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/rate_limit.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/rate_limit.dart';
 
 void main() {
   test('allows up to the limit inside the window, then blocks', () {

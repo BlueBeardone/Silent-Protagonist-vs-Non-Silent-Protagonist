@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'comments.dart';
-import 'comments_api.dart';
+import '../logic/comments.dart';
+import '../logic/comments_api.dart';
 
 /// The Community tab: a small form for leaving a comment plus a button that
 /// reveals what everyone else said.

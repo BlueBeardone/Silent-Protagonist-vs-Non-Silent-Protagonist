@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shelf/shelf.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/comments.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/rate_limit.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/server.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/comments/logic/comments.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/rate_limit.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/server.dart';
 
 import '../bin/server.dart' show LazyMongoCommentsStore, commentsAvailabilityMiddleware;
 

@@ -5,9 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
-import 'comments.dart';
+import '../../comments/logic/comments.dart';
+import '../../stats/logic/stats.dart';
 import 'rate_limit.dart';
-import 'stats.dart';
 
 /// The largest request body we will read for a new comment.
 const int _maxCommentBodyBytes = 8192;

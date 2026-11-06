@@ -2,11 +2,6 @@ import 'dart:convert';
 
 import 'package:html/parser.dart' as html_parser;
 
-/// Parses the body of Steam's `ISteamUserStats/GetNumberOfCurrentPlayers`
-/// response into the live player count.
-///
-/// Steam omits `player_count` (returning only a `result` code) when the appid
-/// has no stats, so we throw rather than silently reporting zero.
 int parseCurrentPlayers(String body) {
   final decoded = jsonDecode(body) as Map<String, dynamic>;
   final response = decoded['response'] as Map<String, dynamic>;

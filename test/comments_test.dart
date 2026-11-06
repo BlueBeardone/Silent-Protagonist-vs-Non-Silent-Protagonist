@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/comments.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/comments/logic/comments.dart';
 
 void main() {
   group('maskEmail', () {

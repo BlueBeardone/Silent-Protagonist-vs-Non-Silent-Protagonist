@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'stats.dart';
+import '../logic/stats.dart';
 
 double barHeight(double value, double maxValue, double maxHeight) {
   if (maxValue <= 0 || value <= 0) return 0;

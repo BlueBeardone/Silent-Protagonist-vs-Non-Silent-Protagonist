@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-import 'chart.dart';
-import 'comments_api.dart';
-import 'community_tab.dart';
-import 'numbers.dart';
-import 'stats.dart';
+import 'comments/logic/comments_api.dart';
+import 'comments/ui/community_tab.dart';
+import 'stats/logic/stats.dart';
+import 'stats/ui/chart.dart';
+import 'stats/ui/numbers.dart';
 
 /// Where the local proxy serves the combined numbers.
 const proxyUrl = 'http://localhost:8080/api/stats';

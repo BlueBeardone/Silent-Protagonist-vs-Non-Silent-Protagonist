@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../logic/stats.dart';
 import 'chart.dart';
-import 'stats.dart';
 
 /// Formats a margin percentage for display, or a dash when it is undefined.
 String formatPercent(double? value) => value == null ? '—' : '${value.round()}%';
