@@ -52,10 +52,16 @@ Two terminals.
 dart run bin/server.dart          # http://localhost:8080
 
 # 2. the app
-flutter run -d chrome
+flutter run -d chrome --web-port=4200 \
+  --dart-define=API_BASE_URL=http://localhost:8080
 ```
 
 If the chart says it can't reach the proxy, start `bin/server.dart` first.
+
+The app's web port is pinned to `4200` so it matches `ALLOWED_ORIGIN` in
+`.env`, and `API_BASE_URL` points the comments API at the proxy (`:8080`)
+instead of the Flutter dev server. In production the app and API share one
+origin, so `API_BASE_URL` is left unset and `ALLOWED_ORIGIN` empty.
 
 ## Test
 

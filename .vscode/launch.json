@@ -4,12 +4,20 @@
   "version": "0.2.0",
   "configurations": [
     {
-      // The Flutter web app. Needs the proxy running to load numbers.
+      // The Flutter web app. Needs the proxy running to load numbers and
+      // comments. The web port is pinned so the proxy's ALLOWED_ORIGIN
+      // (http://localhost:4200) matches; API_BASE_URL points comments at the
+      // proxy instead of the Flutter dev server.
       "name": "App (Chrome)",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
-      "args": ["-d", "chrome"]
+      "args": [
+        "-d",
+        "chrome",
+        "--web-port=4200",
+        "--dart-define=API_BASE_URL=http://localhost:8080"
+      ]
     },
     {
       // The local proxy that serves /api/stats on port 8080.

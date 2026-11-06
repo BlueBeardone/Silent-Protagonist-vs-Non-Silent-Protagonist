@@ -10,6 +10,21 @@ import 'stats/ui/numbers.dart';
 /// Where the local proxy serves the combined numbers.
 const proxyUrl = 'http://localhost:8080/api/stats';
 
+/// Base URL for the comments API, without a trailing slash.
+///
+/// Empty by default, which makes [CommentsApi] issue same-origin relative
+/// URLs — the production setup, where this server also hosts the built app.
+///
+/// Under `flutter run -d chrome` the app is served by the Flutter dev server
+/// on its own port, a different origin than the API, so a relative URL would
+/// hit the dev server and 404. Point it at the proxy instead:
+///
+///     flutter run -d chrome --web-port=4200 \
+///       --dart-define=API_BASE_URL=http://localhost:8080
+///
+/// The dev web port is pinned so the proxy's `ALLOWED_ORIGIN` can match it.
+const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
+
 /// Viewport width at or above which the app uses the wide layout (left
 /// drawer). Narrower screens get the bottom navigation bar.
 const wideBreakpoint = 800.0;
@@ -51,7 +66,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late Future<List<GameStats>> _stats;
-  late final CommentsApi _api = widget.api ?? CommentsApi();
+  late final CommentsApi _api = widget.api ?? CommentsApi(baseUrl: apiBaseUrl);
 
   /// Which destination in the left drawer is showing: 0 chart, 1 numbers,
   /// 2 community.
