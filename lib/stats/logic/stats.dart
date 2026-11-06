@@ -12,10 +12,6 @@ int parseCurrentPlayers(String body) {
   return count;
 }
 
-/// Scrapes the "Last 30 Days" average player count out of a SteamCharts page.
-///
-/// The monthly table lists Avg. Players in a `td.num-f` cell; only the row
-/// whose month cell reads exactly "Last 30 Days" is the running average.
 double parseSteamChartsAvg(String body) {
   final document = html_parser.parse(body);
   for (final cell in document.querySelectorAll('td.month-cell')) {
@@ -30,12 +26,6 @@ double parseSteamChartsAvg(String body) {
   throw FormatException('No "Last 30 Days" row in SteamCharts page');
 }
 
-/// Averages the last six monthly "Avg. Players" rows of a SteamCharts page.
-///
-/// The running "Last 30 Days" row is not a calendar month, so it is skipped;
-/// once six months are collected any older rows are ignored. Months the page
-/// reports without a parseable number are skipped rather than counted. Throws
-/// when the page has no monthly rows at all.
 double parseSteamCharts6mAvg(String body) {
   final document = html_parser.parse(body);
   final months = <double>[];
@@ -53,11 +43,6 @@ double parseSteamCharts6mAvg(String body) {
   return months.reduce((a, b) => a + b) / months.length;
 }
 
-/// Scrapes the "all-time peak" player count out of a SteamCharts page.
-///
-/// The page header holds several `div.app-stat` blocks (playing, 24-hour peak,
-/// all-time peak); only the one whose text says "all-time peak" is the record.
-/// The number may carry thousands separators.
 int parseSteamChartsAllTimePeak(String body) {
   final document = html_parser.parse(body);
   for (final stat in document.querySelectorAll('div.app-stat')) {
