@@ -65,6 +65,25 @@ class CommentsApi {
     ];
   }
 
+  /// Lists every comment, newest first.
+  ///
+  /// The server pages its results, so this walks the cursor: each request asks
+  /// for up to [pageSize] comments starting just older than the previous
+  /// page's last entry, and stops when a page comes back shorter than
+  /// [pageSize] (including empty). [pageSize] is capped at 100 by the server;
+  /// values above that simply make the final short page smaller.
+  Future<List<Comment>> listAll({int pageSize = 100}) async {
+    final all = <Comment>[];
+    String? before;
+    while (true) {
+      final page = await list(limit: pageSize, before: before);
+      all.addAll(page);
+      if (page.length < pageSize) break;
+      before = page.last.createdAt.toUtc().toIso8601String();
+    }
+    return all;
+  }
+
   /// Throws a descriptive [http.ClientException] when [response] is not 2xx.
   void _ensureSuccess(http.Response response, String method) {
     if (response.statusCode >= 200 && response.statusCode < 300) return;

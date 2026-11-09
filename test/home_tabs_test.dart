@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/comments/ui/community_tab.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/main.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/stats/logic/stats.dart';
 
@@ -72,7 +73,7 @@ void main() {
     await openDrawer(tester);
     await tester.tap(find.text('Community'));
     await tester.pumpAndSettle();
-    expect(find.text('Post'), findsOneWidget);
+    expect(find.byType(CommunityTab), findsOneWidget);
   });
 
   /// Sizes the test surface to a phone-like viewport narrower than the

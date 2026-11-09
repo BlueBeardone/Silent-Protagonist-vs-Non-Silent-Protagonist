@@ -75,6 +75,51 @@ void main() {
     expect(seen.url.queryParameters['limit'], '50');
   });
 
+  test('listAll follows the cursor until a short page is returned', () async {
+    final seenBefores = <String?>[];
+    final client = MockClient((request) async {
+      final before = request.url.queryParameters['before'];
+      seenBefores.add(before);
+      if (before == null) {
+        return http.Response(
+          jsonEncode({
+            'comments': [
+              for (var i = 0; i < 100; i++)
+                {
+                  'id': 'a$i',
+                  'email': '***@x.com',
+                  'comment': 'c$i',
+                  'createdAt': '2026-11-05T12:00:00.000Z',
+                },
+            ],
+            'nextCursor': '2026-11-05T12:00:00.000Z',
+          }),
+          200,
+        );
+      }
+      return http.Response(
+        jsonEncode({
+          'comments': [
+            {
+              'id': 'b',
+              'email': '***@x.com',
+              'comment': 'last',
+              'createdAt': '2026-11-05T11:00:00.000Z',
+            },
+          ],
+          'nextCursor': null,
+        }),
+        200,
+      );
+    });
+
+    final all = await CommentsApi(client: client).listAll();
+
+    expect(all, hasLength(101));
+    expect(all.last.comment, 'last');
+    expect(seenBefores, [null, '2026-11-05T12:00:00.000Z']);
+  });
+
   test('post throws on a non-2xx status', () async {
     final client = MockClient((_) async =>
         http.Response(jsonEncode({'error': 'nope'}), 400));
