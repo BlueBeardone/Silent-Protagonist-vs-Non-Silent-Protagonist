@@ -32,11 +32,18 @@ class CommentsApi {
   Future<Comment> post({
     required String email,
     required String comment,
+    String? turnstileToken,
+    String? website,
   }) async {
     final response = await _client.post(
       Uri.parse('$baseUrl/api/comments'),
       headers: {'content-type': 'application/json'},
-      body: jsonEncode({'email': email, 'comment': comment}),
+      body: jsonEncode({
+        'email': email,
+        'comment': comment,
+        'turnstileToken': ?turnstileToken,
+        'website': ?website,
+      }),
     );
     _ensureSuccess(response, 'POST');
     return _commentFromJson(

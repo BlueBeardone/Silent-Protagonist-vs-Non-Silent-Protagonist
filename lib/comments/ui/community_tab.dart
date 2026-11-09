@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../logic/comments.dart';
 import '../logic/comments_api.dart';
@@ -86,6 +87,14 @@ class _CommunityTabState extends State<CommunityTab> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const _Notice(text: researchNotice),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () =>
+                  launchUrl(Uri.parse('/privacy.html')),
+              child: const Text('Privacy policy'),
+            ),
+          ),
           Expanded(child: _buildList(context)),
         ],
       ),
@@ -173,6 +182,7 @@ class _CommentComposer extends StatefulWidget {
 class _CommentComposerState extends State<_CommentComposer> {
   final _commentController = TextEditingController();
   final _emailController = TextEditingController();
+  final _websiteController = TextEditingController();
 
   bool _loading = false;
   String? _error;
@@ -181,6 +191,7 @@ class _CommentComposerState extends State<_CommentComposer> {
   void dispose() {
     _commentController.dispose();
     _emailController.dispose();
+    _websiteController.dispose();
     super.dispose();
   }
 
@@ -201,7 +212,11 @@ class _CommentComposerState extends State<_CommentComposer> {
     });
 
     try {
-      await widget.api.post(email: email, comment: comment);
+      await widget.api.post(
+        email: email,
+        comment: comment,
+        website: _websiteController.text,
+      );
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (_) {
@@ -244,6 +259,17 @@ class _CommentComposerState extends State<_CommentComposer> {
             decoration: const InputDecoration(
               labelText: 'Your email',
               border: OutlineInputBorder(),
+            ),
+          ),
+          // Honeypot: invisible to people, tempting to bots. A non-empty
+          // value is rejected by the server.
+          Offstage(
+            offstage: true,
+            child: TextField(
+              key: const Key('website'),
+              controller: _websiteController,
+              autofocus: false,
+              decoration: const InputDecoration(labelText: 'Website'),
             ),
           ),
           const SizedBox(height: 12),

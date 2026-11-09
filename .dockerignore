@@ -1,0 +1,9 @@
+.git
+.env
+.dart_tool
+build
+.idea
+.vscode
+.superpowers
+test
+docs

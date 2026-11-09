@@ -69,3 +69,63 @@ origin, so `API_BASE_URL` is left unset and `ALLOWED_ORIGIN` empty.
 flutter test
 dart analyze
 ```
+
+## Public launch hardening
+
+The server now includes:
+
+- **Shared rate limiting** — a MongoDB-backed `rate_limits` collection with a
+  TTL index, so limits survive restarts and are shared across instances. If
+  Mongo is unreachable, the limiter falls back to in-memory.
+- **Stats cache** — `/api/stats` is cached for 60 seconds and rate-limited
+  (60/min per IP), with 5-second timeouts on the upstream calls.
+- **Spam protection** — a `website` honeypot field on every comment, plus
+  optional Cloudflare Turnstile when `TURNSTILE_SECRET_KEY` is set.
+- **Security headers** — CSP, HSTS, `nosniff`, `frame-ancestors`, and
+  `Referrer-Policy`.
+- **Privacy policy** — `web/privacy.html`, served at `/privacy.html` and linked
+  from the Community tab.
+- **Email encryption at rest** — when `EMAIL_ENCRYPTION_KEY` is set, the full
+  email is encrypted with AES-GCM before it is stored. The API still returns
+  only the masked form.
+
+### Environment variables
+
+| Variable | Purpose |
+| --- | --- |
+| `MONGODB_URI` | Atlas connection string. Required. |
+| `ADMIN_TOKEN` | Secret for `DELETE /api/comments/<id>`. Empty disables DELETE. |
+| `ALLOWED_ORIGIN` | Dev-only CORS origin. Empty in production. |
+| `TRUSTED_PROXY_HOPS` | Set to `1` on Render (one reverse proxy). |
+| `PORT` | Port to listen on. Render provides this. |
+| `TURNSTILE_SECRET_KEY` | Optional. Enables Turnstile verification. |
+| `EMAIL_ENCRYPTION_KEY` | Optional. Base64 32-byte AES key for email encryption at rest. |
+| `CSP` | Optional. Overrides the default Content-Security-Policy. |
+| `API_ORIGIN` | Optional. The API origin for the app's CSP when split. |
+| `RETENTION_DAYS` | Documented retention period. |
+
+### Render (recommended)
+
+Render runs the Dart server and the built Flutter app in one service. The
+`Dockerfile` builds both. Use `render.yaml` or set the variables manually.
+Set `TRUSTED_PROXY_HOPS=1`; otherwise every user shares Render's proxy IP and
+the global rate limit applies to the whole site.
+
+### Netlify + Render
+
+Netlify can only host the static Flutter app. Build it with
+`--dart-define=API_BASE_URL=https://your-api.onrender.com`, deploy
+`build/web`, and set `ALLOWED_ORIGIN=https://your-site.netlify.app` on Render.
+`netlify.toml` includes the headers and SPA redirect.
+
+### Retention
+
+The server does not delete comments automatically. To delete comments older
+than the retention period, run this in the Mongo shell:
+
+```js
+db.comments.deleteMany({
+  createdAt: { $lt: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) }
+});
+```
+

@@ -8,6 +8,7 @@ import 'package:shelf_router/shelf_router.dart';
 import '../../comments/logic/comments.dart';
 import '../../stats/logic/stats.dart';
 import 'rate_limit.dart';
+import 'spam_guard.dart';
 
 /// The largest request body we will read for a new comment.
 const int _maxCommentBodyBytes = 8192;
@@ -43,13 +44,14 @@ Handler commentsHandler({
   String? allowedOrigin,
   String adminToken = '',
   int trustedProxyHops = 0,
+  SpamGuard? spamGuard,
 }) {
   final router = Router();
 
   router.post('/api/comments', (Request request) async {
     // Rate-limit first so a flood of invalid or oversized bodies still
     // consumes quota and cannot be used to bypass the limiter.
-    if (!writeLimiter.allow(_clientIp(request, trustedProxyHops))) {
+    if (!await writeLimiter.allow(_clientIp(request, trustedProxyHops))) {
       return _jsonError(429, 'Too many requests. Please slow down.');
     }
 
@@ -85,25 +87,48 @@ Handler commentsHandler({
       return _jsonError(400, 'Request body must be a JSON object.');
     }
 
-    // Never build a query from arbitrary keys: accept exactly two known keys.
+    // Never build a query from arbitrary keys: accept only the known keys.
+    // `website` is the honeypot and `turnstileToken` is optional.
+    const allowedKeys = {'email', 'comment', 'website', 'turnstileToken'};
     final map = decoded.cast<String, Object?>();
-    if (map.length != 2 ||
-        !map.containsKey('email') ||
-        !map.containsKey('comment')) {
+    if (map.keys.any((key) => !allowedKeys.contains(key))) {
       return _jsonError(
-          400, 'Body must contain exactly "email" and "comment".');
+        400,
+        'Body must contain only "email", "comment", "website", and '
+        '"turnstileToken".',
+      );
+    }
+    if (!map.containsKey('email') || !map.containsKey('comment')) {
+      return _jsonError(400, 'Body must contain "email" and "comment".');
     }
 
     final email = map['email'];
     final comment = map['comment'];
+    final website = map['website'];
+    final turnstileToken = map['turnstileToken'];
     if (email is! String || comment is! String) {
       return _jsonError(400, 'Email and comment must be strings.');
+    }
+    if (website != null && website is! String) {
+      return _jsonError(400, 'Honeypot field must be a string.');
+    }
+    if (turnstileToken != null && turnstileToken is! String) {
+      return _jsonError(400, 'Turnstile token must be a string.');
     }
 
     final emailError = validateEmail(email);
     if (emailError != null) return _jsonError(400, emailError);
     final commentError = validateComment(comment);
     if (commentError != null) return _jsonError(400, commentError);
+
+    if (spamGuard != null) {
+      final spamError = await spamGuard.check(
+        honeypot: website as String?,
+        turnstileToken: turnstileToken as String?,
+        remoteIp: _clientIp(request, trustedProxyHops),
+      );
+      if (spamError != null) return _jsonError(400, spamError);
+    }
 
     final saved = await store.add(
       email: email.trim(),
@@ -113,7 +138,7 @@ Handler commentsHandler({
   });
 
   router.get('/api/comments', (Request request) async {
-    if (!readLimiter.allow(_clientIp(request, trustedProxyHops))) {
+    if (!await readLimiter.allow(_clientIp(request, trustedProxyHops))) {
       return _jsonError(429, 'Too many requests. Please slow down.');
     }
 
@@ -152,7 +177,7 @@ Handler commentsHandler({
   router.delete('/api/comments/<id>', (Request request, String id) async {
     // Rate-limit DELETE too: without this the admin token could be brute
     // forced at unlimited speed.
-    if (!readLimiter.allow(_clientIp(request, trustedProxyHops))) {
+    if (!await readLimiter.allow(_clientIp(request, trustedProxyHops))) {
       return _jsonError(429, 'Too many requests. Please slow down.');
     }
     if (adminToken.isEmpty ||
@@ -331,17 +356,71 @@ bool _constantTimeEquals(String? a, String? b) {
 /// tested without touching the network.
 typedef StatsFetcher = Future<List<GameStats>> Function();
 
+/// A short-lived cache for [fetchLiveStats] with a single-flight guard.
+///
+/// The first caller in a window fetches; concurrent callers wait for the same
+/// future. A failed fetch is not cached, so the next caller retries.
+class StatsCache {
+  StatsCache({
+    this.ttl = const Duration(seconds: 60),
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
+
+  final Duration ttl;
+  final DateTime Function() _now;
+
+  List<GameStats>? _value;
+  DateTime? _expiresAt;
+  Future<List<GameStats>>? _inFlight;
+
+  Future<List<GameStats>> get(StatsFetcher fetch) {
+    final now = _now();
+    final cached = _value;
+    final expiresAt = _expiresAt;
+    if (cached != null && expiresAt != null && now.isBefore(expiresAt)) {
+      return Future<List<GameStats>>.value(cached);
+    }
+    final inFlight = _inFlight;
+    if (inFlight != null) return inFlight;
+    final future = Future<List<GameStats>>.sync(fetch).then((value) {
+      _value = value;
+      _expiresAt = _now().add(ttl);
+      return value;
+    }).whenComplete(() {
+      _inFlight = null;
+    });
+    _inFlight = future;
+    return future;
+  }
+}
+
 /// Builds the proxy handler. The browser can't reach Steam or SteamCharts
 /// directly (no CORS headers), so everything goes through here.
-Handler statsHandler(StatsFetcher fetchStats) {
+///
+/// The response is cached for [cacheTtl] and rate-limited per client IP, so a
+/// single caller cannot hammer the upstream sources.
+Handler statsHandler(
+  StatsFetcher fetchStats, {
+  RateLimiter? rateLimiter,
+  int trustedProxyHops = 0,
+  StatsCache? cache,
+  Duration cacheTtl = const Duration(seconds: 60),
+}) {
+  final statsCache = cache ?? StatsCache(ttl: cacheTtl);
   final router = Router()
     ..get('/api/stats', (Request request) async {
-      final stats = await fetchStats();
+      if (rateLimiter != null &&
+          !await rateLimiter.allow(_clientIp(request, trustedProxyHops))) {
+        return _jsonError(429, 'Too many requests. Please slow down.');
+      }
+      final stats = await statsCache.get(fetchStats);
       return Response.ok(
         jsonEncode([for (final game in stats) game.toJson()]),
         headers: {
           'content-type': 'application/json',
           'access-control-allow-origin': '*',
+          'cache-control': 'public, max-age=60',
+          'vary': 'Origin',
         },
       );
     });
@@ -370,8 +449,10 @@ Future<GameStats> _fetchOne(http.Client client, GameStats game) async {
   int? peakAllTime;
 
   try {
-    final response = await client.get(Uri.parse(
-        'https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=${game.appid}'));
+    final response = await client
+        .get(Uri.parse(
+            'https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=${game.appid}'))
+        .timeout(const Duration(seconds: 5));
     if (response.statusCode == 200) {
       current = parseCurrentPlayers(response.body);
     }
@@ -380,10 +461,12 @@ Future<GameStats> _fetchOne(http.Client client, GameStats game) async {
   }
 
   try {
-    final response = await client.get(
-      Uri.parse('https://steamcharts.com/app/${game.appid}'),
-      headers: {'User-Agent': 'Mozilla/5.0'},
-    );
+    final response = await client
+        .get(
+          Uri.parse('https://steamcharts.com/app/${game.appid}'),
+          headers: {'User-Agent': 'Mozilla/5.0'},
+        )
+        .timeout(const Duration(seconds: 5));
     if (response.statusCode == 200) {
       avg30d = parseSteamChartsAvg(response.body);
       try {

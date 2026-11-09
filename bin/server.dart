@@ -2,13 +2,16 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dotenv/dotenv.dart';
+import 'package:mongo_dart/mongo_dart.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_static/shelf_static.dart';
 
 import 'package:silent_protagonist_vs_non_silent_protagonist/comments/logic/comments.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/rate_limit.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/security_headers.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/server.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/spam_guard.dart';
 
 /// How many comments a single client may create in [writeWindow].
 const int _writeLimit = 5;
@@ -17,6 +20,10 @@ const Duration _writeWindow = Duration(minutes: 10);
 /// How many comment reads a single client may make in [readWindow].
 const int _readLimit = 60;
 const Duration _readWindow = Duration(minutes: 1);
+
+/// How many stats reads a single client may make in [statsWindow].
+const int _statsLimit = 60;
+const Duration _statsWindow = Duration(minutes: 1);
 
 /// A [CommentsStore] that opens its MongoDB connection lazily and retries after
 /// a failure.
@@ -27,9 +34,10 @@ const Duration _readWindow = Duration(minutes: 1);
 /// tries again. An operation that fails after a successful connect drops the
 /// cached connection so a later request can reconnect.
 class LazyMongoCommentsStore implements CommentsStore {
-  LazyMongoCommentsStore(this._uri);
+  LazyMongoCommentsStore(this._uri, {this.emailEncryptionKey});
 
   final String _uri;
+  final String? emailEncryptionKey;
 
   MongoCommentsStore? _store;
   Future<MongoCommentsStore>? _connecting;
@@ -41,6 +49,12 @@ class LazyMongoCommentsStore implements CommentsStore {
     await _connection();
   }
 
+  /// The `rate_limits` collection, used by the shared rate limiter.
+  Future<DbCollection> rateLimits() async {
+    final store = await _connection();
+    return store.rateLimits;
+  }
+
   Future<MongoCommentsStore> _connection() {
     final existing = _store;
     if (existing != null) return Future<MongoCommentsStore>.value(existing);
@@ -49,7 +63,10 @@ class LazyMongoCommentsStore implements CommentsStore {
 
   Future<MongoCommentsStore> _connect() async {
     try {
-      final store = await MongoCommentsStore.connect(_uri);
+      final store = await MongoCommentsStore.connect(
+        _uri,
+        emailEncryptionKey: emailEncryptionKey,
+      );
       _store = store;
       return store;
     } catch (_) {
@@ -183,8 +200,15 @@ Future<void> main(List<String> args) async {
   final trustedProxyHops =
       int.tryParse(env['TRUSTED_PROXY_HOPS']?.trim() ?? '') ?? 0;
   final port = int.tryParse(env['PORT']?.trim() ?? '') ?? 8080;
+  final turnstileSecret = env['TURNSTILE_SECRET_KEY']?.trim();
+  final csp = env['CSP']?.trim();
+  final apiOrigin = env['API_ORIGIN']?.trim();
+  final emailEncryptionKey = env['EMAIL_ENCRYPTION_KEY']?.trim();
 
-  final store = LazyMongoCommentsStore(mongoUri);
+  final store = LazyMongoCommentsStore(
+    mongoUri,
+    emailEncryptionKey: emailEncryptionKey,
+  );
   try {
     await store.ensureConnected();
     stdout.writeln('Connected to MongoDB.');
@@ -195,24 +219,49 @@ Future<void> main(List<String> args) async {
     );
   }
 
+  final writeLimiter = MongoRateLimiter(
+    collection: store.rateLimits,
+    maxRequests: _writeLimit,
+    window: _writeWindow,
+  );
+  final readLimiter = MongoRateLimiter(
+    collection: store.rateLimits,
+    maxRequests: _readLimit,
+    window: _readWindow,
+  );
+  final statsLimiter = MongoRateLimiter(
+    collection: store.rateLimits,
+    maxRequests: _statsLimit,
+    window: _statsWindow,
+  );
+
   final comments = commentsHandler(
     store: store,
-    writeLimiter: RateLimiter(maxRequests: _writeLimit, window: _writeWindow),
-    readLimiter: RateLimiter(maxRequests: _readLimit, window: _readWindow),
+    writeLimiter: writeLimiter,
+    readLimiter: readLimiter,
     allowedOrigin: allowedOrigin,
     adminToken: adminToken,
     trustedProxyHops: trustedProxyHops,
+    spamGuard: SpamGuard(turnstileSecret: turnstileSecret),
   );
 
   final staticHandler = _staticHandlerOr404();
 
   final cascade = Cascade()
       .add(comments)
-      .add(statsHandler(fetchLiveStats))
+      .add(statsHandler(
+        fetchLiveStats,
+        rateLimiter: statsLimiter,
+        trustedProxyHops: trustedProxyHops,
+      ))
       .add(staticHandler)
       .handler;
 
   final handler = const Pipeline()
+      .addMiddleware(securityHeadersMiddleware(
+        csp: csp,
+        apiOrigin: apiOrigin,
+      ))
       .addMiddleware(corsPreflightMiddleware(allowedOrigin))
       .addMiddleware(commentsAvailabilityMiddleware(store, allowedOrigin))
       .addHandler(cascade);

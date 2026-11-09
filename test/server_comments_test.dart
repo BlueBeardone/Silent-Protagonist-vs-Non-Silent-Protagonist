@@ -16,8 +16,8 @@ Handler build({
 }) =>
     commentsHandler(
       store: store ?? InMemoryCommentsStore(),
-      writeLimiter: RateLimiter(maxRequests: writeLimit, window: const Duration(minutes: 10)),
-      readLimiter: RateLimiter(maxRequests: 60, window: const Duration(minutes: 1)),
+      writeLimiter: InMemoryRateLimiter(maxRequests: writeLimit, window: const Duration(minutes: 10)),
+      readLimiter: InMemoryRateLimiter(maxRequests: 60, window: const Duration(minutes: 1)),
       allowedOrigin: 'http://localhost',
       adminToken: adminToken,
       trustedProxyHops: trustedProxyHops,

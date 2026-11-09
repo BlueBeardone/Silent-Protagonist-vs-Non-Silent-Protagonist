@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: silent-protagonist
+    runtime: docker
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: ALLOWED_ORIGIN
+        sync: false
+      - key: TRUSTED_PROXY_HOPS
+        value: "1"
+      - key: TURNSTILE_SECRET_KEY
+        sync: false
+      - key: EMAIL_ENCRYPTION_KEY
+        sync: false
+      - key: CSP
+        sync: false
+      - key: API_ORIGIN
+        sync: false
+      - key: RETENTION_DAYS
+        value: "365"

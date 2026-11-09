@@ -5,6 +5,8 @@ library;
 
 import 'package:mongo_dart/mongo_dart.dart';
 
+import 'email_cipher.dart';
+
 /// A conservative address shape: something before the `@`, a dotted domain,
 /// and a TLD of at least two letters. Deliberately stricter than RFC 5322 —
 /// this only needs to catch obvious typos, not every legal address.
@@ -178,16 +180,28 @@ class InMemoryCommentsStore implements CommentsStore {
 /// `createdAt` is a native [DateTime] so the driver stores it as a BSON date,
 /// which both range queries ([MongoCommentsStore.recent]) and the
 /// `{ createdAt: -1 }` index rely on.
+///
+/// When [emailEncrypted] is provided, the plaintext `email` is not stored:
+/// the document keeps the encrypted value and the masked form. When it is
+/// absent, the plaintext is stored (used by the in-memory store and tests).
 Map<String, dynamic> commentToMongo({
   required String email,
   required String comment,
   required DateTime createdAt,
-}) =>
-    {
-      'email': email,
-      'comment': comment,
-      'createdAt': createdAt,
-    };
+  String? emailEncrypted,
+}) {
+  final doc = <String, dynamic>{
+    'comment': comment,
+    'createdAt': createdAt,
+  };
+  if (emailEncrypted != null) {
+    doc['emailEncrypted'] = emailEncrypted;
+    doc['maskedEmail'] = maskEmail(email);
+  } else {
+    doc['email'] = email;
+  }
+  return doc;
+}
 
 /// Rebuilds a [Comment] from a MongoDB document.
 ///
@@ -213,30 +227,60 @@ Comment commentFromMongo(Map<String, dynamic> doc) {
 /// Intended for the server entrypoint (Task 6); it is not exercised by unit
 /// tests, which never touch a live database.
 class MongoCommentsStore implements CommentsStore {
-  MongoCommentsStore(this._comments);
+  MongoCommentsStore(this._comments, this._rateLimits, [this._cipher]);
 
   final DbCollection _comments;
+  final DbCollection _rateLimits;
+  final EmailCipher? _cipher;
+
+  /// The `rate_limits` collection used by the shared rate limiter.
+  DbCollection get rateLimits => _rateLimits;
 
   /// Opens [uri], ensures the `{ createdAt: -1 }` index used by [recent], and
   /// returns a store over the `comments` collection.
-  static Future<MongoCommentsStore> connect(String uri) async {
+  ///
+  /// It also creates the `rate_limits` collection and its TTL index, so the
+  /// shared rate limiter can expire old buckets without a separate job.
+  ///
+  /// When [emailEncryptionKey] is a base64 32-byte key, emails are encrypted
+  /// at rest. The plaintext address is never written to the collection.
+  static Future<MongoCommentsStore> connect(
+    String uri, {
+    String? emailEncryptionKey,
+  }) async {
     final db = await Db.create(uri);
     await db.open();
     final comments = db.collection('comments');
     await comments.createIndex(keys: {'createdAt': -1});
-    return MongoCommentsStore(comments);
+    final rateLimits = db.collection('rate_limits');
+    await db.runCommand({
+      'createIndexes': 'rate_limits',
+      'indexes': [
+        {
+          'key': {'expiresAt': 1},
+          'name': 'expiresAt_ttl',
+          'expireAfterSeconds': 0,
+        },
+      ],
+    });
+    final cipher = (emailEncryptionKey == null || emailEncryptionKey.isEmpty)
+        ? null
+        : EmailCipher(key: emailEncryptionKey);
+    return MongoCommentsStore(comments, rateLimits, cipher);
   }
 
   @override
   Future<Comment> add({required String email, required String comment}) async {
     final createdAt = DateTime.now().toUtc();
+    final emailEncrypted = _cipher == null ? null : await _cipher.encrypt(email);
     final doc = commentToMongo(
       email: email,
       comment: comment,
       createdAt: createdAt,
+      emailEncrypted: emailEncrypted,
     );
     final result = await _comments.insertOne(doc);
-    return commentFromMongo({'_id': result.id, ...doc});
+    return commentFromMongo({'_id': result.id, ...doc, 'email': email});
   }
 
   @override
@@ -246,7 +290,16 @@ class MongoCommentsStore implements CommentsStore {
       selector = selector.lt('createdAt', DateTime.parse(before));
     }
     final docs = await _comments.find(selector).toList();
-    return docs.map(commentFromMongo).toList();
+    return Future.wait(docs.map(_commentFromMongo));
+  }
+
+  Future<Comment> _commentFromMongo(Map<String, dynamic> doc) async {
+    final encrypted = doc['emailEncrypted'];
+    if (encrypted is String && _cipher != null) {
+      final email = await _cipher.decrypt(encrypted);
+      return commentFromMongo({...doc, 'email': email});
+    }
+    return commentFromMongo(doc);
   }
 
   @override

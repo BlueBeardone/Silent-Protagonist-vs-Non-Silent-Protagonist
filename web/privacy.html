@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Privacy Policy — Silent Protagonist vs Non-Silent Protagonist</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      max-width: 46rem;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      line-height: 1.55;
+    }
+    h1 { font-size: 1.6rem; }
+    h2 { font-size: 1.15rem; margin-top: 1.8rem; }
+    code { background: rgba(127,127,127,.18); padding: .1rem .25rem; border-radius: .25rem; }
+    a { color: inherit; }
+  </style>
+</head>
+<body>
+  <h1>Privacy Policy</h1>
+  <p>
+    This is a small research project comparing how people feel about silent
+    versus non-silent protagonists. This page explains what the Community tab
+    collects and why.
+  </p>
+
+  <h2>What we collect</h2>
+  <ul>
+    <li><strong>Your email address</strong> — used to identify the comment and
+      to follow up occasionally for the research.</li>
+    <li><strong>Your comment</strong> — free text you write.</li>
+    <li><strong>The time</strong> the comment was posted.</li>
+    <li><strong>Your IP address</strong> — used only to rate-limit requests and
+      to stop spam. It is not stored in the comment collection.</li>
+  </ul>
+
+  <h2>What we show</h2>
+  <p>
+    Comments are public. The email address is masked before it is shown
+    (for example <code>bar***@gmail.com</code>); the full address is never
+    returned to a browser.
+  </p>
+
+  <h2>Why we collect it</h2>
+  <p>
+    The email lets us follow up with people who want to take part in the
+    research. The comment is the research data. The IP is only used to keep
+    the endpoint usable.
+  </p>
+
+  <h2>How long we keep it</h2>
+  <p>
+    Comments are kept for the research project. The operator can set a
+    retention period with the <code>RETENTION_DAYS</code> environment variable
+    and delete older comments. The default is to keep them until the project
+    ends.
+  </p>
+
+  <h2>Deleting your data</h2>
+  <p>
+    To have your comment and email removed, contact the operator and include
+    the email address you used (or the comment text). The admin can delete a
+    comment by id with the <code>DELETE /api/comments/&lt;id&gt;</code>
+    endpoint.
+  </p>
+
+  <h2>Third parties</h2>
+  <p>
+    The app is hosted by the operator. The comment database is hosted by
+    MongoDB Atlas. The live player numbers come from Steam and SteamCharts.
+    If spam protection is enabled, the site uses Cloudflare Turnstile.
+  </p>
+
+  <h2>Cookies</h2>
+  <p>
+    This app does not set cookies. The Flutter web app may use local storage
+    for its own preferences; the comments API does not use cookies.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    Replace this paragraph with the operator's contact email before launch.
+  </p>
+
+  <p><a href="/">Back to the app</a></p>
+</body>
+</html>
