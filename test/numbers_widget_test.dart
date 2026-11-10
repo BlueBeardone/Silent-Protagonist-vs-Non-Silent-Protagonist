@@ -151,7 +151,7 @@ void main() {
       expect(find.textContaining('Deciding factor'), findsOneWidget);
     });
 
-    testWidgets('on a narrow view shows only the camp and 30-day columns', (
+    testWidgets('on a narrow view shows only the 30-day column', (
       tester,
     ) async {
       await tester.pumpWidget(host(sample, width: 700));
@@ -161,6 +161,7 @@ void main() {
       expect(find.text('6-month'), findsNothing);
       expect(find.text('Peak'), findsNothing);
       expect(find.text('Current players'), findsNothing);
+      expect(find.text('Camp'), findsNothing);
     });
 
     testWidgets('tapping a game row reveals the other statistics', (
@@ -195,12 +196,69 @@ void main() {
 
       await tester.tap(find.text('Elden Ring'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('God of War'));
       await tester.tap(find.text('God of War'));
       await tester.pumpAndSettle();
 
       // Both rows are now expanded, so both sets of values are visible.
       expect(find.text('900'), findsOneWidget);
       expect(find.text('100'), findsOneWidget);
+    });
+
+    testWidgets('offers a filter for all, silent, and non-silent games',
+        (tester) async {
+      await tester.pumpWidget(host(sample));
+
+      expect(find.text('All'), findsOneWidget);
+      expect(find.text('Silent'), findsOneWidget);
+      expect(find.text('Non-silent'), findsOneWidget);
+    });
+
+    testWidgets('filtering to silent hides non-silent games', (tester) async {
+      await tester.pumpWidget(host(sample));
+
+      await tester.tap(find.text('Silent'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Elden Ring'), findsOneWidget);
+      expect(find.text('God of War'), findsNothing);
+      expect(find.text('Non-silent total'), findsNothing);
+      expect(find.text('Non-silent average'), findsNothing);
+    });
+
+    testWidgets('filtering to non-silent hides silent games', (tester) async {
+      await tester.pumpWidget(host(sample));
+
+      await tester.tap(find.text('Non-silent'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Elden Ring'), findsNothing);
+      expect(find.text('God of War'), findsOneWidget);
+      expect(find.text('Silent total'), findsNothing);
+      expect(find.text('Silent average'), findsNothing);
+    });
+
+    testWidgets('the wide table has no camp column', (tester) async {
+      await tester.pumpWidget(host(sample));
+
+      expect(find.text('Camp'), findsNothing);
+    });
+
+    testWidgets('the compact table has no camp column', (tester) async {
+      await tester.pumpWidget(host(sample, width: 700));
+
+      expect(find.text('Camp'), findsNothing);
+    });
+
+    testWidgets('hides the verdict when filtered to one camp', (tester) async {
+      await tester.pumpWidget(host(sample));
+
+      await tester.tap(find.text('Silent'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Silent games are more popular overall'), findsNothing);
+      expect(find.text('Deciding factor: Current players — Silent +800%'),
+          findsNothing);
     });
   });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../logic/stats.dart';
+import 'camp_filter.dart';
 import 'chart.dart';
 
 /// Formats a margin percentage for display, or a dash when it is undefined.
@@ -13,36 +14,57 @@ const double compactNumbersBreakpoint = 800;
 
 /// The numbers tab: a per-game table with camp subtotals, and a verdict panel
 /// pinned at the bottom that names the more popular side and what decides it.
-class NumbersComparison extends StatelessWidget {
+class NumbersComparison extends StatefulWidget {
   const NumbersComparison({super.key, required this.stats});
 
   final List<GameStats> stats;
 
   @override
+  State<NumbersComparison> createState() => _NumbersComparisonState();
+}
+
+class _NumbersComparisonState extends State<NumbersComparison> {
+  Camp? _camp;
+
+  @override
   Widget build(BuildContext context) {
+    final stats = filterByCamp(widget.stats, _camp);
     return Column(
       children: [
-        Expanded(child: _StatsTable(stats: stats)),
-        _VerdictPanel(overall: summarizeCamps(stats)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: CampFilter(
+            selected: _camp,
+            onChanged: (camp) => setState(() => _camp = camp),
+          ),
+        ),
+        Expanded(child: _StatsTable(stats: stats, camp: _camp)),
+        if (_camp == null) _VerdictPanel(overall: summarizeCamps(stats)),
       ],
     );
   }
 }
 
 class _StatsTable extends StatelessWidget {
-  const _StatsTable({required this.stats});
+  const _StatsTable({required this.stats, required this.camp});
 
   final List<GameStats> stats;
+  final Camp? camp;
 
   @override
   Widget build(BuildContext context) {
     final overall = summarizeCamps(stats);
     final byMetric = {for (final s in overall.summaries) s.metric: s};
+    final camps = camp == null ? Camp.values : [camp!];
 
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < compactNumbersBreakpoint) {
-          return _CompactStatsList(stats: stats, byMetric: byMetric);
+          return _CompactStatsList(
+            stats: stats,
+            byMetric: byMetric,
+            camp: camp,
+          );
         }
         return SingleChildScrollView(
           child: SingleChildScrollView(
@@ -52,14 +74,13 @@ class _StatsTable extends StatelessWidget {
               headingTextStyle: const TextStyle(fontWeight: FontWeight.bold),
               columns: const [
                 DataColumn(label: Text('Game')),
-                DataColumn(label: Text('Camp')),
                 DataColumn(label: Text('Current'), numeric: true),
                 DataColumn(label: Text('30-day'), numeric: true),
                 DataColumn(label: Text('6-month'), numeric: true),
                 DataColumn(label: Text('Peak'), numeric: true),
               ],
               rows: [
-                for (final camp in Camp.values) ...[
+                for (final camp in camps) ...[
                   ..._gameRows(stats.where((g) => g.camp == camp)),
                   _footerRow(
                     context,
@@ -91,16 +112,6 @@ class _StatsTable extends StatelessWidget {
       DataRow(
         cells: [
           DataCell(Text(game.name)),
-          DataCell(
-            Text(
-              campLabel(game.camp).toUpperCase(),
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: campColor(game.camp),
-              ),
-            ),
-          ),
           DataCell(Text(formatCount(game.current?.toDouble()))),
           DataCell(Text(formatCount(game.avg30d))),
           DataCell(Text(formatCount(game.avg6m))),
@@ -123,7 +134,6 @@ class _StatsTable extends StatelessWidget {
       ),
       cells: [
         DataCell(Text(label, style: bold)),
-        const DataCell(SizedBox.shrink()),
         for (final metric in Metric.values)
           DataCell(
             Text(formatCount(pick(byMetric[metric]!, camp)), style: bold),
@@ -133,18 +143,22 @@ class _StatsTable extends StatelessWidget {
   }
 }
 
-const double _campColumnWidth = 88;
 const double _valueColumnWidth = 68;
 const double _chevronSpace = 28;
 
 /// The narrow-screen alternative to the wide table. Each game shows only its
-/// camp and 30-day average; tapping a row reveals the remaining statistics in
-/// a stacked block, so there is never any horizontal panning.
+/// 30-day average; tapping a row reveals the remaining statistics in a
+/// stacked block, so there is never any horizontal panning.
 class _CompactStatsList extends StatefulWidget {
-  const _CompactStatsList({required this.stats, required this.byMetric});
+  const _CompactStatsList({
+    required this.stats,
+    required this.byMetric,
+    required this.camp,
+  });
 
   final List<GameStats> stats;
   final Map<Metric, MetricSummary> byMetric;
+  final Camp? camp;
 
   @override
   State<_CompactStatsList> createState() => _CompactStatsListState();
@@ -161,12 +175,13 @@ class _CompactStatsListState extends State<_CompactStatsList> {
 
   @override
   Widget build(BuildContext context) {
+    final camps = widget.camp == null ? Camp.values : [widget.camp!];
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _header(context),
-          for (final camp in Camp.values) ...[
+          for (final camp in camps) ...[
             for (final game in widget.stats.where((g) => g.camp == camp))
               _gameRow(context, game),
             _footerRow(
@@ -200,10 +215,6 @@ class _CompactStatsListState extends State<_CompactStatsList> {
         children: [
           Expanded(child: Text('Game', style: bold)),
           SizedBox(
-            width: _campColumnWidth,
-            child: Text('Camp', style: bold),
-          ),
-          SizedBox(
             width: _valueColumnWidth,
             child: Text('30-day', style: bold, textAlign: TextAlign.right),
           ),
@@ -225,17 +236,6 @@ class _CompactStatsListState extends State<_CompactStatsList> {
             child: Row(
               children: [
                 Expanded(child: Text(game.name)),
-                SizedBox(
-                  width: _campColumnWidth,
-                  child: Text(
-                    campLabel(game.camp).toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: campColor(game.camp),
-                    ),
-                  ),
-                ),
                 SizedBox(
                   width: _valueColumnWidth,
                   child: Text(
@@ -323,7 +323,6 @@ class _CompactStatsListState extends State<_CompactStatsList> {
       child: Row(
         children: [
           Expanded(child: Text(label, style: bold)),
-          const SizedBox(width: _campColumnWidth),
           SizedBox(
             width: _valueColumnWidth,
             child: Text(

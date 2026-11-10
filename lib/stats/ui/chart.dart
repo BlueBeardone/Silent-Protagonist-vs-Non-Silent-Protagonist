@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../logic/stats.dart';
+import 'camp_filter.dart';
 
 double barLength(double value, double maxValue, double maxLength) {
   if (maxValue <= 0 || value <= 0) return 0;
@@ -25,7 +26,7 @@ String formatCount(num? value) {
   return buffer.toString();
 }
 
-class ComparisonChart extends StatelessWidget {
+class ComparisonChart extends StatefulWidget {
   const ComparisonChart({
     super.key,
     required this.stats,
@@ -36,25 +37,46 @@ class ComparisonChart extends StatelessWidget {
   final double maxBarWidth;
 
   @override
+  State<ComparisonChart> createState() => _ComparisonChartState();
+}
+
+class _ComparisonChartState extends State<ComparisonChart> {
+  Camp? _camp;
+
+  @override
   Widget build(BuildContext context) {
+    final stats = filterByCamp(widget.stats, _camp);
     final values = [
       for (final game in stats) ...[game.current?.toDouble(), game.avg30d],
     ].whereType<double>();
     final maxValue = values.isEmpty ? 0.0 : values.reduce(math.max);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final game in stats)
-            _GameGroup(
-              game: game,
-              maxValue: maxValue,
-              maxBarWidth: maxBarWidth,
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(32, 16, 32, 0),
+          child: CampFilter(
+            selected: _camp,
+            onChanged: (camp) => setState(() => _camp = camp),
+          ),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final game in stats)
+                  _GameGroup(
+                    game: game,
+                    maxValue: maxValue,
+                    maxBarWidth: widget.maxBarWidth,
+                  ),
+              ],
             ),
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -135,6 +135,10 @@ String campLabel(Camp camp) => switch (camp) {
       Camp.nonSilent => 'Non-silent',
     };
 
+/// The games in [stats] that belong to [camp], or all games when [camp] is null.
+List<GameStats> filterByCamp(List<GameStats> stats, Camp? camp) =>
+    camp == null ? stats : stats.where((game) => game.camp == camp).toList();
+
 /// The values [stats] holds for [camp] on [metric], skipping failed lookups.
 List<double> _campValues(List<GameStats> stats, Camp camp, Metric metric) => [
       for (final game in stats)

@@ -10,9 +10,16 @@ concurrent players**, **30-day average players**, **6-month average players**,
 and each game's **all-time peak** for fifteen games on each side, so you can
 see which camp is being played more — and read the numbers behind it.
 
+Both the Chart and Numbers tabs can be filtered to **All**, **Silent**, or
+**Non-silent** games. The Numbers tab no longer shows a per-row camp column;
+the filter tells you which camp is in view, and the table still groups games
+by camp with subtotal rows.
+
 The **Numbers** tab lists every game's four values, adds up (and averages)
 each camp, then names the side that is more popular overall and the deciding
-factor — the metric where the two sides differ most, in relative terms.
+factor — the metric where the two sides differ most, in relative terms. The
+verdict is shown on the All view; selecting a single camp hides it because
+there is no comparison to make.
 
 - Silent protagonists (self-insert): Dark Souls Remastered, Elden Ring, Dark
   Souls III, Monster Hunter: World, Skyrim Special Edition, Fallout: New Vegas,

@@ -67,4 +67,89 @@ void main() {
     expect(find.text('—'), findsNWidgets(2));
     expect(find.text('2,100'), findsOneWidget);
   });
+
+  testWidgets('offers a filter for all, silent, and non-silent games',
+      (tester) async {
+    await tester.pumpWidget(host(const [
+      GameStats(
+          name: 'Elden Ring',
+          camp: Camp.silent,
+          appid: 1,
+          current: 100),
+      GameStats(
+          name: 'GTA V',
+          camp: Camp.nonSilent,
+          appid: 2,
+          current: 200),
+    ]));
+
+    expect(find.text('All'), findsOneWidget);
+    expect(find.text('Silent'), findsOneWidget);
+    expect(find.text('Non-silent'), findsOneWidget);
+  });
+
+  testWidgets('filtering to silent hides non-silent games', (tester) async {
+    await tester.pumpWidget(host(const [
+      GameStats(
+          name: 'Elden Ring',
+          camp: Camp.silent,
+          appid: 1,
+          current: 100),
+      GameStats(
+          name: 'GTA V',
+          camp: Camp.nonSilent,
+          appid: 2,
+          current: 200),
+    ]));
+
+    await tester.tap(find.text('Silent'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Elden Ring'), findsOneWidget);
+    expect(find.text('GTA V'), findsNothing);
+  });
+
+  testWidgets('filtering to non-silent hides silent games', (tester) async {
+    await tester.pumpWidget(host(const [
+      GameStats(
+          name: 'Elden Ring',
+          camp: Camp.silent,
+          appid: 1,
+          current: 100),
+      GameStats(
+          name: 'GTA V',
+          camp: Camp.nonSilent,
+          appid: 2,
+          current: 200),
+    ]));
+
+    await tester.tap(find.text('Non-silent'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Elden Ring'), findsNothing);
+    expect(find.text('GTA V'), findsOneWidget);
+  });
+
+  testWidgets('returning to all restores every game', (tester) async {
+    await tester.pumpWidget(host(const [
+      GameStats(
+          name: 'Elden Ring',
+          camp: Camp.silent,
+          appid: 1,
+          current: 100),
+      GameStats(
+          name: 'GTA V',
+          camp: Camp.nonSilent,
+          appid: 2,
+          current: 200),
+    ]));
+
+    await tester.tap(find.text('Silent'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('All'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Elden Ring'), findsOneWidget);
+    expect(find.text('GTA V'), findsOneWidget);
+  });
 }
