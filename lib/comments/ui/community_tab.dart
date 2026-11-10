@@ -132,9 +132,30 @@ class _CommunityTabState extends State<CommunityTab> {
       itemCount: comments.length,
       itemBuilder: (context, index) {
         final comment = comments[index];
-        return ListTile(
-          title: Text(comment.comment),
-          subtitle: Text(comment.email),
+        final scheme = Theme.of(context).colorScheme;
+        // A lighter card with a visible outline so adjacent comments are easy
+        // to tell apart against the page background.
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHigh,
+            border: Border.all(color: scheme.outlineVariant),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(comment.comment),
+              const SizedBox(height: 6),
+              Text(
+                comment.email,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -244,20 +265,20 @@ class _CommentComposerState extends State<_CommentComposer> {
           Text(composeNotice, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 12),
           TextField(
-            key: const Key('comment'),
-            controller: _commentController,
-            maxLines: 3,
+            key: const Key('email'),
+            controller: _emailController,
             decoration: const InputDecoration(
-              labelText: 'Your comment',
+              labelText: 'Your email',
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 12),
           TextField(
-            key: const Key('email'),
-            controller: _emailController,
+            key: const Key('comment'),
+            controller: _commentController,
+            maxLines: 3,
             decoration: const InputDecoration(
-              labelText: 'Your email',
+              labelText: 'Your comment',
               border: OutlineInputBorder(),
             ),
           ),
@@ -281,6 +302,9 @@ class _CommentComposerState extends State<_CommentComposer> {
             const SizedBox(height: 12),
           ],
           FilledButton(
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(55),
+            ),
             onPressed: _loading ? null : _post,
             child: const Text('Post'),
           ),
