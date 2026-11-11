@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shelf/shelf.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/comments/logic/classifier.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/comments/logic/comments.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/rate_limit.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/server.dart';
@@ -13,6 +16,7 @@ Handler build({
   int trustedProxyHops = 0,
   int writeLimit = 5,
   CommentsStore? store,
+  CommentClassifier? classifier,
 }) =>
     commentsHandler(
       store: store ?? InMemoryCommentsStore(),
@@ -21,6 +25,24 @@ Handler build({
       allowedOrigin: 'http://localhost',
       adminToken: adminToken,
       trustedProxyHops: trustedProxyHops,
+      classifier: classifier,
+    );
+
+/// A [CommentClassifier] whose transport replies with [content] (or fails when
+/// [status] is not 200), so handler tests never touch the network.
+CommentClassifier classifierReturning(String content, {int status = 200}) =>
+    CommentClassifier(
+      apiKey: 'test-key',
+      client: MockClient((_) async => http.Response(
+            jsonEncode({
+              'choices': [
+                {
+                  'message': {'role': 'assistant', 'content': content},
+                },
+              ],
+            }),
+            status,
+          )),
     );
 
 Request post(Object body) => Request(
@@ -33,7 +55,11 @@ Request post(Object body) => Request(
 /// A store whose [recent] always fails as if the backend were down.
 class _DownStore implements CommentsStore {
   @override
-  Future<Comment> add({required String email, required String comment}) async =>
+  Future<Comment> add({
+    required String email,
+    required String comment,
+    CommentTag? tag,
+  }) async =>
       throw UnimplementedError();
 
   @override
@@ -53,8 +79,44 @@ void main() {
     expect(json.toString(), isNot(contains('barry@gmail.com')));
   });
 
-  test('rejects bad input with 400, never 500', () async {
-    for (final body in [
+  test('tags the posted comment with the classifier verdict', () async {
+    final handler = build(classifier: classifierReturning('leans_talking'));
+    final response = await handler(
+        post({'email': 'a@x.com', 'comment': 'I want a hero who talks'}));
+    expect(response.statusCode, 201);
+    final json =
+        jsonDecode(await response.readAsString()) as Map<String, dynamic>;
+    expect(json['tag'], 'leans_talking');
+
+    // The tag survives into the list view too.
+    final listed = await handler(
+        Request('GET', Uri.parse('http://localhost/api/comments')));
+    final body =
+        jsonDecode(await listed.readAsString()) as Map<String, dynamic>;
+    expect((body['comments'] as List).first['tag'], 'leans_talking');
+  });
+
+  test('still stores the comment when classification fails', () async {
+    final handler = build(classifier: classifierReturning('x', status: 500));
+    final response = await handler(
+        post({'email': 'a@x.com', 'comment': 'no idea'}));
+    expect(response.statusCode, 201);
+    final json =
+        jsonDecode(await response.readAsString()) as Map<String, dynamic>;
+    expect(json['tag'], isNull);
+  });
+
+  test('leaves the comment untagged when no classifier is configured',
+      () async {
+    final response = await build()(
+        post({'email': 'a@x.com', 'comment': 'no idea'}));
+    expect(response.statusCode, 201);
+    final json =
+        jsonDecode(await response.readAsString()) as Map<String, dynamic>;
+    expect(json['tag'], isNull);
+  });
+
+  test('rejects bad input with 400, never 500', () async {    for (final body in [
       {'comment': 'no email'},
       {'email': 'nope', 'comment': 'x'},
       {'email': 'a@x.com', 'comment': '   '},

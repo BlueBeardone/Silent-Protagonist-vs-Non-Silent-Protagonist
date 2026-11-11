@@ -38,6 +38,9 @@ class _CommunityTabState extends State<CommunityTab> {
   bool _loading = false;
   String? _error;
 
+  /// Tags currently selected in the filter. Empty means "show everything".
+  Set<CommentTag> _selectedTags = <CommentTag>{};
+
   @override
   void initState() {
     super.initState();
@@ -80,6 +83,21 @@ class _CommunityTabState extends State<CommunityTab> {
     if (posted == true) await _loadComments();
   }
 
+  /// Opens the tag filter: every tag, its count, and a checkbox. Toggling a
+  /// box re-filters the list underneath immediately.
+  Future<void> _openFilter() async {
+    final comments = _comments ?? const <Comment>[];
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _TagFilterSheet(
+        counts: tagCounts(comments),
+        selected: _selectedTags,
+        onChanged: (tags) => setState(() => _selectedTags = tags),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -89,10 +107,20 @@ class _CommunityTabState extends State<CommunityTab> {
           const _Notice(text: researchNotice),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () =>
-                  launchUrl(Uri.parse('/privacy.html')),
-              child: const Text('Privacy policy'),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  key: const Key('tag-filter'),
+                  tooltip: 'Filter by tag',
+                  icon: const Icon(Icons.filter_list),
+                  onPressed: _openFilter,
+                ),
+                TextButton(
+                  onPressed: () => launchUrl(Uri.parse('/privacy.html')),
+                  child: const Text('Privacy policy'),
+                ),
+              ],
             ),
           ),
           Expanded(child: _buildList(context)),
@@ -122,9 +150,14 @@ class _CommunityTabState extends State<CommunityTab> {
         ),
       );
     }
-    final comments = _comments ?? const <Comment>[];
+    final all = _comments ?? const <Comment>[];
+    final comments = filterByTags(all, _selectedTags);
     if (comments.isEmpty) {
-      return const Center(child: Text('No comments yet. Be the first.'));
+      // Distinguish "nothing posted yet" from "your filter matched nothing".
+      final message = all.isEmpty
+          ? 'No comments yet. Be the first.'
+          : 'No comments match these tags.';
+      return Center(child: Text(message));
     }
     return ListView.builder(
       // Extra bottom padding keeps the last row clear of the floating button.
@@ -308,6 +341,67 @@ class _CommentComposerState extends State<_CommentComposer> {
             onPressed: _loading ? null : _post,
             child: const Text('Post'),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The multi-select tag filter sheet. Each row shows the tag's tally on the
+/// left, a checkbox, and the tag's label; toggling a box reports the new
+/// selection through [onChanged] so the list behind the sheet re-filters.
+class _TagFilterSheet extends StatefulWidget {
+  const _TagFilterSheet({
+    required this.counts,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final Map<CommentTag, int> counts;
+  final Set<CommentTag> selected;
+  final ValueChanged<Set<CommentTag>> onChanged;
+
+  @override
+  State<_TagFilterSheet> createState() => _TagFilterSheetState();
+}
+
+class _TagFilterSheetState extends State<_TagFilterSheet> {
+  late final Set<CommentTag> _selected = {...widget.selected};
+
+  void _toggle(CommentTag tag, bool on) {
+    setState(() {
+      if (on) {
+        _selected.add(tag);
+      } else {
+        _selected.remove(tag);
+      }
+    });
+    widget.onChanged({..._selected});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              'Filter by tag',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          for (final tag in CommentTag.values)
+            CheckboxListTile(
+              key: Key('tag-option-${tag.wireName}'),
+              value: _selected.contains(tag),
+              onChanged: (on) => _toggle(tag, on ?? false),
+              title: Text(commentTagLabel(tag)),
+              secondary: Text('${widget.counts[tag] ?? 0}'),
+              controlAffinity: ListTileControlAffinity.trailing,
+            ),
         ],
       ),
     );

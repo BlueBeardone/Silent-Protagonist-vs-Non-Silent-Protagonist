@@ -68,6 +68,18 @@ void main() {
       expect(json.toString(), isNot(contains('barry@gmail.com')));
       expect(json['createdAt'], '2026-11-05T12:00:00.000Z');
     });
+
+    test('emits the tag wire name, or null when untagged', () {
+      Comment tagged(CommentTag? tag) => Comment(
+            id: '1',
+            email: 'a@x.com',
+            comment: 'c',
+            createdAt: DateTime.utc(2026, 11, 5, 12),
+            tag: tag,
+          );
+      expect(tagged(CommentTag.leansSilent).toJson()['tag'], 'leans_silent');
+      expect(tagged(null).toJson()['tag'], isNull);
+    });
   });
 
   group('InMemoryCommentsStore', () {
@@ -80,10 +92,19 @@ void main() {
       expect(await store.deleteById(first.id), isTrue);
       expect(await store.deleteById(first.id), isFalse);
     });
+
+    test('keeps the tag handed to add', () async {
+      final store = InMemoryCommentsStore();
+      await store.add(
+        email: 'a@x.com',
+        comment: 'one',
+        tag: CommentTag.stronglyTalking,
+      );
+      expect((await store.recent()).single.tag, CommentTag.stronglyTalking);
+    });
   });
 
-  group('mongo mapping', () {
-    test('round-trips a document', () {
+  group('mongo mapping', () {    test('round-trips a document', () {
       final doc = commentToMongo(
         email: 'barry@gmail.com',
         comment: 'hi',
@@ -93,6 +114,66 @@ void main() {
       expect(back.email, 'barry@gmail.com');
       expect(back.comment, 'hi');
       expect(back.createdAt, DateTime.utc(2026, 11, 5, 12));
+    });
+
+    test('stores the tag wire name and omits it when untagged', () {
+      final tagged = commentToMongo(
+        email: 'a@x.com',
+        comment: 'hi',
+        createdAt: DateTime.utc(2026, 11, 5, 12),
+        tag: CommentTag.mixed,
+      );
+      expect(tagged['tag'], 'mixed');
+      expect(commentFromMongo({'_id': 'abc', ...tagged}).tag, CommentTag.mixed);
+
+      final untagged = commentToMongo(
+        email: 'a@x.com',
+        comment: 'hi',
+        createdAt: DateTime.utc(2026, 11, 5, 12),
+      );
+      expect(untagged.containsKey('tag'), isFalse);
+      expect(commentFromMongo({'_id': 'abc', ...untagged}).tag, isNull);
+    });
+  });
+
+  Comment commentWith(CommentTag? tag) => Comment(
+        id: '$tag',
+        email: 'a@x.com',
+        comment: 'c',
+        createdAt: DateTime.utc(2026, 11, 5, 12),
+        tag: tag,
+      );
+
+  group('tagCounts', () {
+    test('counts each tag and includes zeroes for the rest', () {
+      final counts = tagCounts([
+        commentWith(CommentTag.leansSilent),
+        commentWith(CommentTag.leansSilent),
+        commentWith(CommentTag.mixed),
+        commentWith(null),
+      ]);
+      expect(counts[CommentTag.leansSilent], 2);
+      expect(counts[CommentTag.mixed], 1);
+      expect(counts[CommentTag.stronglyTalking], 0);
+      expect(counts.keys, containsAll(CommentTag.values));
+    });
+  });
+
+  group('filterByTags', () {
+    test('returns everything when no tags are selected', () {
+      final comments = [commentWith(CommentTag.mixed), commentWith(null)];
+      expect(filterByTags(comments, const {}), comments);
+    });
+
+    test('keeps only the selected tags and drops the untagged', () {
+      final comments = [
+        commentWith(CommentTag.mixed),
+        commentWith(CommentTag.leansTalking),
+        commentWith(null),
+      ];
+      final filtered =
+          filterByTags(comments, const {CommentTag.leansTalking});
+      expect(filtered.map((c) => c.tag), [CommentTag.leansTalking]);
     });
   });
 }

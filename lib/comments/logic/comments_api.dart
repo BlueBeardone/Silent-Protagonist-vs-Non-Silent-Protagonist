@@ -105,5 +105,6 @@ class CommentsApi {
         email: json['email'] as String,
         comment: json['comment'] as String,
         createdAt: DateTime.parse(json['createdAt'] as String),
+        tag: CommentTag.fromWire(json['tag'] as String?),
       );
 }

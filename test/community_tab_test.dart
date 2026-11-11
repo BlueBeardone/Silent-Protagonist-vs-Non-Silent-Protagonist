@@ -110,4 +110,88 @@ void main() {
         findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
   });
+
+  testWidgets('the filter button lists every tag with its count',
+      (tester) async {
+    final api = apiWith([
+      {
+        'id': '1',
+        'email': '***@x.com',
+        'comment': 'A',
+        'createdAt': '2026-11-05T12:00:00.000Z',
+        'tag': 'mixed',
+      },
+      {
+        'id': '2',
+        'email': '***@x.com',
+        'comment': 'B',
+        'createdAt': '2026-11-05T11:00:00.000Z',
+        'tag': 'mixed',
+      },
+      {
+        'id': '3',
+        'email': '***@x.com',
+        'comment': 'C',
+        'createdAt': '2026-11-05T10:00:00.000Z',
+        'tag': 'leans_talking',
+      },
+    ]);
+
+    await tester.pumpWidget(tab(api));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('tag-filter')));
+    await tester.pumpAndSettle();
+
+    // Every tag is offered, even the ones with no comments.
+    expect(find.text('Leans silent'), findsOneWidget);
+    expect(find.text('Strongly silent'), findsOneWidget);
+    // Counts sit beside their tag.
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('tag-option-mixed')),
+        matching: find.text('2'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('tag-option-leans_talking')),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('selecting a tag narrows the list to matching comments',
+      (tester) async {
+    final api = apiWith([
+      {
+        'id': '1',
+        'email': '***@x.com',
+        'comment': 'only mixed here',
+        'createdAt': '2026-11-05T12:00:00.000Z',
+        'tag': 'mixed',
+      },
+      {
+        'id': '2',
+        'email': '***@x.com',
+        'comment': 'only talking here',
+        'createdAt': '2026-11-05T11:00:00.000Z',
+        'tag': 'leans_talking',
+      },
+    ]);
+
+    await tester.pumpWidget(tab(api));
+    await tester.pumpAndSettle();
+    expect(find.text('only talking here'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('tag-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('tag-option-mixed')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('only mixed here'), findsOneWidget);
+    expect(find.text('only talking here'), findsNothing);
+  });
 }

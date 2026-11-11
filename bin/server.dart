@@ -7,6 +7,7 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_static/shelf_static.dart';
 
+import 'package:silent_protagonist_vs_non_silent_protagonist/comments/logic/classifier.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/comments/logic/comments.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/rate_limit.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/security_headers.dart';
@@ -96,8 +97,12 @@ class LazyMongoCommentsStore implements CommentsStore {
   }
 
   @override
-  Future<Comment> add({required String email, required String comment}) =>
-      _with((store) => store.add(email: email, comment: comment));
+  Future<Comment> add({
+    required String email,
+    required String comment,
+    CommentTag? tag,
+  }) =>
+      _with((store) => store.add(email: email, comment: comment, tag: tag));
 
   @override
   Future<List<Comment>> recent({int limit = 50, String? before}) =>
@@ -204,6 +209,19 @@ Future<void> main(List<String> args) async {
   final csp = env['CSP']?.trim();
   final apiOrigin = env['API_ORIGIN']?.trim();
   final emailEncryptionKey = env['EMAIL_ENCRYPTION_KEY']?.trim();
+  final openRouterApiKey = env['OPENROUTER_API_KEY']?.trim() ?? '';
+  final openRouterModel = env['OPENROUTER_MODEL']?.trim();
+  final classifier = CommentClassifier(
+    apiKey: openRouterApiKey,
+    model: (openRouterModel == null || openRouterModel.isEmpty)
+        ? 'anthropic/claude-haiku-5.5'
+        : openRouterModel,
+  );
+  if (!classifier.enabled) {
+    stdout.writeln(
+      'OPENROUTER_API_KEY not set; comments will not be tagged.',
+    );
+  }
 
   final store = LazyMongoCommentsStore(
     mongoUri,
@@ -243,6 +261,7 @@ Future<void> main(List<String> args) async {
     adminToken: adminToken,
     trustedProxyHops: trustedProxyHops,
     spamGuard: SpamGuard(turnstileSecret: turnstileSecret),
+    classifier: classifier,
   );
 
   final staticHandler = _staticHandlerOr404();

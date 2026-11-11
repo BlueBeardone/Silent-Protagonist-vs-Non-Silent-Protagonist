@@ -79,6 +79,66 @@ String? validateComment(String comment) {
   return null;
 }
 
+/// Where a comment sits on the silent-vs-talking-protagonist spectrum, as
+/// decided by the classifier at submit time.
+///
+/// [wireName] is the stable value stored in Mongo and sent over the API; the
+/// enum's own `name` is deliberately not used so the stored form can never be
+/// broken by a rename.
+enum CommentTag {
+  stronglySilent('strongly_silent'),
+  leansSilent('leans_silent'),
+  mixed('mixed'),
+  leansTalking('leans_talking'),
+  stronglyTalking('strongly_talking'),
+  unclear('unclear');
+
+  const CommentTag(this.wireName);
+
+  /// The stable string form persisted and serialised.
+  final String wireName;
+
+  /// Parses a [wireName], returning null for an unknown or missing value so a
+  /// stray string from the model or database is treated as untagged.
+  static CommentTag? fromWire(String? value) {
+    for (final tag in CommentTag.values) {
+      if (tag.wireName == value) return tag;
+    }
+    return null;
+  }
+}
+
+/// Human-readable name for a comment tag, shown in the filter panel.
+String commentTagLabel(CommentTag tag) => switch (tag) {
+      CommentTag.stronglySilent => 'Strongly silent',
+      CommentTag.leansSilent => 'Leans silent',
+      CommentTag.mixed => 'Mixed / neutral',
+      CommentTag.leansTalking => 'Leans talking',
+      CommentTag.stronglyTalking => 'Strongly talking',
+      CommentTag.unclear => 'Unclear / off-topic',
+    };
+
+/// Counts how many of [comments] carry each tag, keyed by every [CommentTag]
+/// (including zeroes) so the filter panel can always render the full list.
+/// Untagged comments are counted under no key.
+Map<CommentTag, int> tagCounts(List<Comment> comments) {
+  final counts = {for (final tag in CommentTag.values) tag: 0};
+  for (final comment in comments) {
+    final tag = comment.tag;
+    if (tag != null) counts[tag] = counts[tag]! + 1;
+  }
+  return counts;
+}
+
+/// The comments in [comments] whose tag is in [tags].
+///
+/// An empty [tags] means "no filter" and returns [comments] unchanged. When a
+/// filter is active, untagged comments are excluded: they match no tag.
+List<Comment> filterByTags(List<Comment> comments, Set<CommentTag> tags) =>
+    tags.isEmpty
+        ? comments
+        : comments.where((c) => c.tag != null && tags.contains(c.tag)).toList();
+
 /// Signals that the comments backend is unreachable. The HTTP handler lets
 /// this propagate so the availability middleware can translate it to a `503`.
 class CommentsUnavailableException implements Exception {
@@ -100,28 +160,41 @@ class Comment {
   final String comment;
   final DateTime createdAt;
 
+  /// Where the classifier placed this comment on the silent-vs-talking
+  /// spectrum, or null when it was never classified (including every comment
+  /// stored before tagging existed).
+  final CommentTag? tag;
+
   Comment({
     required this.id,
     required this.email,
     required this.comment,
     required this.createdAt,
+    this.tag,
   });
 
-  /// A JSON-safe view of this comment. `email` is masked via [maskEmail] and
-  /// `createdAt` is a UTC ISO-8601 string.
+  /// A JSON-safe view of this comment. `email` is masked via [maskEmail],
+  /// `createdAt` is a UTC ISO-8601 string, and `tag` is the stable wire name
+  /// (or null when untagged).
   Map<String, dynamic> toJson() => {
         'id': id,
         'email': maskEmail(email),
         'comment': comment,
         'createdAt': createdAt.toUtc().toIso8601String(),
+        'tag': tag?.wireName,
       };
 }
 
 /// Persistence boundary for community comments.
 abstract class CommentsStore {
   /// Persists a new comment and returns it with its generated id and
-  /// `createdAt` timestamp.
-  Future<Comment> add({required String email, required String comment});
+  /// `createdAt` timestamp. [tag] is the classifier's verdict, or null when
+  /// the comment could not be classified.
+  Future<Comment> add({
+    required String email,
+    required String comment,
+    CommentTag? tag,
+  });
 
   /// Returns up to [limit] comments, newest first. When [before] is given,
   /// only comments strictly older than that timestamp are returned.
@@ -140,12 +213,17 @@ class InMemoryCommentsStore implements CommentsStore {
   int _nextId = 0;
 
   @override
-  Future<Comment> add({required String email, required String comment}) async {
+  Future<Comment> add({
+    required String email,
+    required String comment,
+    CommentTag? tag,
+  }) async {
     final created = Comment(
       id: (_nextId++).toString(),
       email: email,
       comment: comment,
       createdAt: DateTime.now().toUtc(),
+      tag: tag,
     );
     _comments.add(created);
     return created;
@@ -189,11 +267,13 @@ Map<String, dynamic> commentToMongo({
   required String comment,
   required DateTime createdAt,
   String? emailEncrypted,
+  CommentTag? tag,
 }) {
   final doc = <String, dynamic>{
     'comment': comment,
     'createdAt': createdAt,
   };
+  if (tag != null) doc['tag'] = tag.wireName;
   if (emailEncrypted != null) {
     doc['emailEncrypted'] = emailEncrypted;
     doc['maskedEmail'] = maskEmail(email);
@@ -219,6 +299,7 @@ Comment commentFromMongo(Map<String, dynamic> doc) {
     email: doc['email'] as String,
     comment: doc['comment'] as String,
     createdAt: doc['createdAt'] as DateTime,
+    tag: CommentTag.fromWire(doc['tag'] as String?),
   );
 }
 
@@ -270,7 +351,11 @@ class MongoCommentsStore implements CommentsStore {
   }
 
   @override
-  Future<Comment> add({required String email, required String comment}) async {
+  Future<Comment> add({
+    required String email,
+    required String comment,
+    CommentTag? tag,
+  }) async {
     final createdAt = DateTime.now().toUtc();
     final emailEncrypted = _cipher == null ? null : await _cipher.encrypt(email);
     final doc = commentToMongo(
@@ -278,6 +363,7 @@ class MongoCommentsStore implements CommentsStore {
       comment: comment,
       createdAt: createdAt,
       emailEncrypted: emailEncrypted,
+      tag: tag,
     );
     final result = await _comments.insertOne(doc);
     return commentFromMongo({'_id': result.id, ...doc, 'email': email});

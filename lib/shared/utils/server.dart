@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
+import '../../comments/logic/classifier.dart';
 import '../../comments/logic/comments.dart';
 import '../../stats/logic/stats.dart';
 import 'rate_limit.dart';
@@ -37,6 +38,11 @@ const int _maxPageSize = 100;
 /// Only when it is greater than zero is `x-forwarded-for` consulted, taking the
 /// hop-th entry from the end of the chain. Otherwise the header is ignored so a
 /// client cannot spoof its own address.
+///
+/// [classifier], when provided, labels each new comment at submit time. It is
+/// best-effort: a null classifier, or one whose verdict is null (a timeout, an
+/// API error, an unparseable reply), leaves the comment untagged but still
+/// stored, so the model can never block a post.
 Handler commentsHandler({
   required CommentsStore store,
   required RateLimiter writeLimiter,
@@ -45,6 +51,7 @@ Handler commentsHandler({
   String adminToken = '',
   int trustedProxyHops = 0,
   SpamGuard? spamGuard,
+  CommentClassifier? classifier,
 }) {
   final router = Router();
 
@@ -130,9 +137,20 @@ Handler commentsHandler({
       if (spamError != null) return _jsonError(400, spamError);
     }
 
+    final sanitized = sanitizeComment(comment);
+
+    // Best-effort labelling, at submit time only. A null verdict (no
+    // classifier, a model error, or an unparseable reply) simply leaves the
+    // comment untagged; the save below always runs.
+    CommentTag? tag;
+    if (classifier != null) {
+      tag = await classifier.classify(sanitized);
+    }
+
     final saved = await store.add(
       email: email.trim(),
-      comment: sanitizeComment(comment),
+      comment: sanitized,
+      tag: tag,
     );
     return _json(201, saved.toJson());
   });

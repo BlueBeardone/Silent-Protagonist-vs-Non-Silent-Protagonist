@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/comments/logic/comments.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/comments/logic/comments_api.dart';
 
 void main() {
@@ -26,6 +27,33 @@ void main() {
       200,
     ));
     expect((await CommentsApi(client: client).list()).single.comment, 'hi');
+  });
+
+  test('parses the tag, and leaves it null when absent', () async {
+    final client = MockClient((_) async => http.Response(
+      jsonEncode({
+        'comments': [
+          {
+            'id': '1',
+            'email': '***@x.com',
+            'comment': 'hi',
+            'createdAt': '2026-11-05T12:00:00.000Z',
+            'tag': 'leans_talking',
+          },
+          {
+            'id': '2',
+            'email': '***@x.com',
+            'comment': 'old',
+            'createdAt': '2026-11-05T11:00:00.000Z',
+          },
+        ],
+        'nextCursor': null,
+      }),
+      200,
+    ));
+    final comments = await CommentsApi(client: client).list();
+    expect(comments.first.tag, CommentTag.leansTalking);
+    expect(comments.last.tag, isNull);
   });
 
   test('post targets /api/comments with a JSON content type', () async {
