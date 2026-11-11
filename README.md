@@ -95,6 +95,11 @@ The server now includes:
 - **Email encryption at rest** — when `EMAIL_ENCRYPTION_KEY` is set, the full
   email is encrypted with AES-GCM before it is stored. The API still returns
   only the masked form.
+- **Comment tagging** — when `OPENROUTER_API_KEY` is set, each new comment is
+  labelled at submit time on the silent-vs-talking spectrum (best-effort: a
+  model outage leaves the comment untagged but still posted). The Community
+  tab's filter button tallies and filters by tag. Existing comments are not
+  backfilled.
 
 ### Environment variables
 
@@ -107,6 +112,8 @@ The server now includes:
 | `PORT` | Port to listen on. Render provides this. |
 | `TURNSTILE_SECRET_KEY` | Optional. Enables Turnstile verification. |
 | `EMAIL_ENCRYPTION_KEY` | Optional. Base64 32-byte AES key for email encryption at rest. |
+| `OPENROUTER_API_KEY` | Optional. Enables tagging each new comment with its silent-vs-talking verdict. Empty leaves comments untagged. |
+| `OPENROUTER_MODEL` | Optional. Classifier model id. Defaults to `anthropic/claude-haiku-5.5`. |
 | `CSP` | Optional. Overrides the default Content-Security-Policy. |
 | `API_ORIGIN` | Optional. The API origin for the app's CSP when split. |
 | `RETENTION_DAYS` | Documented retention period. |

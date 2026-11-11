@@ -17,6 +17,10 @@ services:
         sync: false
       - key: EMAIL_ENCRYPTION_KEY
         sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: anthropic/claude-haiku-5.5
       - key: CSP
         sync: false
       - key: API_ORIGIN
