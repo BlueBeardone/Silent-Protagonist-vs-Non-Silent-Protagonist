@@ -113,7 +113,7 @@ The server now includes:
 | `TURNSTILE_SECRET_KEY` | Optional. Enables Turnstile verification. |
 | `EMAIL_ENCRYPTION_KEY` | Optional. Base64 32-byte AES key for email encryption at rest. |
 | `OPENROUTER_API_KEY` | Optional. Enables tagging each new comment with its silent-vs-talking verdict. Empty leaves comments untagged. |
-| `OPENROUTER_MODEL` | Optional. Classifier model id. Defaults to `anthropic/claude-haiku-5.5`. |
+| `OPENROUTER_MODEL` | Optional. Classifier model id. Defaults to `parallel/decisions-fast:free`. |
 | `CSP` | Optional. Overrides the default Content-Security-Policy. |
 | `API_ORIGIN` | Optional. The API origin for the app's CSP when split. |
 | `RETENTION_DAYS` | Documented retention period. |

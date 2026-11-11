@@ -17,6 +17,9 @@ const String classifierSystemPrompt =
     'unclear. Use unclear when the comment expresses no preference or is off '
     'topic.';
 
+/// The model used when `OPENROUTER_MODEL` is unset.
+const String defaultClassifierModel = 'parallel/decisions-fast:free';
+
 /// Reads a [CommentTag] out of a model reply.
 ///
 /// The model is asked for a bare wire name, but it may add punctuation or a
@@ -47,7 +50,7 @@ CommentTag? parseTagFromModelOutput(String text) {
 class CommentClassifier {
   CommentClassifier({
     required this.apiKey,
-    this.model = 'anthropic/claude-haiku-5.5',
+    this.model = defaultClassifierModel,
     this.baseUrl = 'https://openrouter.ai/api/v1',
     this.timeout = const Duration(seconds: 5),
     http.Client? client,
@@ -56,7 +59,7 @@ class CommentClassifier {
   /// The OpenRouter API key. Blank disables classification.
   final String apiKey;
 
-  /// The OpenRouter model id, e.g. `anthropic/claude-haiku-5.5`.
+  /// The OpenRouter model id, e.g. `parallel/decisions-fast:free`.
   final String model;
 
   /// The OpenRouter API root, without a trailing slash.

@@ -20,7 +20,7 @@ services:
       - key: OPENROUTER_API_KEY
         sync: false
       - key: OPENROUTER_MODEL
-        value: anthropic/claude-haiku-5.5
+        value: parallel/decisions-fast:free
       - key: CSP
         sync: false
       - key: API_ORIGIN

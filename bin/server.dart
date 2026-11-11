@@ -214,7 +214,7 @@ Future<void> main(List<String> args) async {
   final classifier = CommentClassifier(
     apiKey: openRouterApiKey,
     model: (openRouterModel == null || openRouterModel.isEmpty)
-        ? 'anthropic/claude-haiku-5.5'
+        ? defaultClassifierModel
         : openRouterModel,
   );
   if (!classifier.enabled) {
