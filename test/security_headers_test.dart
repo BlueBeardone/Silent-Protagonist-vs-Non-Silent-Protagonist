@@ -31,6 +31,19 @@ void main() {
     expect(response.headers['cache-control'], 'public, max-age=60');
   });
 
+  test('allows the Flutter engine and font CDNs to be fetched', () async {
+    final handler = securityHeadersMiddleware()((request) => Response.ok('ok'));
+    final response = await handler(Request('GET', Uri.parse('http://x/')));
+    final csp = response.headers['content-security-policy'];
+    expect(
+      csp,
+      contains(
+        "connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com",
+      ),
+    );
+    expect(csp, contains("font-src 'self' data: https://fonts.gstatic.com"));
+  });
+
   test('adds the API origin to the CSP connect-src', () async {
     final handler = securityHeadersMiddleware(
       apiOrigin: 'https://api.example.com',

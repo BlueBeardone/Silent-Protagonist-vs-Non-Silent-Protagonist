@@ -2,7 +2,7 @@
 # on Render. Set API_BASE_URL in the Netlify build environment to the Render
 # API URL (for example https://your-api.onrender.com).
 [build]
-  command = "flutter build web --release --dart-define=API_BASE_URL=$API_BASE_URL"
+  command = "flutter build web --release --no-web-resources-cdn --dart-define=API_BASE_URL=$API_BASE_URL"
   publish = "build/web"
 
 [[redirects]]
@@ -17,4 +17,4 @@
     X-Frame-Options = "DENY"
     Referrer-Policy = "no-referrer"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://your-api.onrender.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com https://your-api.onrender.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"

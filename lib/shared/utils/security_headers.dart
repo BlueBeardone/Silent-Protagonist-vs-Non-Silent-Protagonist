@@ -1,10 +1,5 @@
 import 'package:shelf/shelf.dart';
 
-/// Headers applied to every response.
-///
-/// `Content-Security-Policy` is deliberately permissive enough for Flutter web:
-/// CanvasKit is loaded from `www.gstatic.com` or `cdn.jsdelivr.net`, and the
-/// app may need inline scripts/eval. Set [csp] to override it.
 const Map<String, String> _defaultHeaders = {
   'x-content-type-options': 'nosniff',
   'x-frame-options': 'DENY',
@@ -19,8 +14,8 @@ const String _defaultCsp = "default-src 'self'; "
     "https://www.gstatic.com https://cdn.jsdelivr.net; "
     "style-src 'self' 'unsafe-inline'; "
     "img-src 'self' data: blob:; "
-    "font-src 'self' data:; "
-    "connect-src 'self'; "
+    "font-src 'self' data: https://fonts.gstatic.com; "
+    "connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com; "
     "frame-ancestors 'none'; "
     "base-uri 'self'; "
     "form-action 'self';";
@@ -65,8 +60,8 @@ String _buildCsp(String? csp, String? apiOrigin) {
   final origin = _originOf(apiOrigin);
   if (origin == null) return _defaultCsp;
   return _defaultCsp.replaceFirst(
-    "connect-src 'self';",
-    "connect-src 'self' $origin;",
+    "connect-src 'self'",
+    "connect-src 'self' $origin",
   );
 }
 

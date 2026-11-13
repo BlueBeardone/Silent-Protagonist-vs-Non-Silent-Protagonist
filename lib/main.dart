@@ -7,8 +7,7 @@ import 'stats/logic/stats.dart';
 import 'stats/ui/chart.dart';
 import 'stats/ui/numbers.dart';
 
-/// Where the local proxy serves the combined numbers.
-const proxyUrl = 'http://localhost:8080/api/stats';
+const proxyUrl = '$apiBaseUrl/api/stats';
 
 /// Base URL for the comments API, without a trailing slash.
 ///

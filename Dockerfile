@@ -26,7 +26,7 @@ COPY pubspec.yaml pubspec.lock ./
 RUN flutter pub get
 
 COPY . .
-RUN flutter build web --release
+RUN flutter build web --release --no-web-resources-cdn
 RUN dart compile exe bin/server.dart -o server
 
 FROM --platform=linux/amd64 dart:stable AS runtime
