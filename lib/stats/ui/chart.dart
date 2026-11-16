@@ -125,7 +125,7 @@ class _GameGroup extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          _Bar(
+          StatBar(
             metricLabel: 'Current',
             valueLabel: formatCount(game.current),
             value: game.current?.toDouble(),
@@ -133,7 +133,7 @@ class _GameGroup extends StatelessWidget {
             maxBarWidth: maxBarWidth,
             color: color,
           ),
-          _Bar(
+          StatBar(
             metricLabel: '30-day avg',
             valueLabel: formatCount(game.avg30d),
             value: game.avg30d,
@@ -141,7 +141,7 @@ class _GameGroup extends StatelessWidget {
             maxBarWidth: maxBarWidth,
             color: color.withValues(alpha: 0.42),
           ),
-          _Bar(
+          StatBar(
             metricLabel: '6-month avg',
             valueLabel: formatCount(game.avg6m),
             value: game.avg6m,
@@ -155,8 +155,8 @@ class _GameGroup extends StatelessWidget {
   }
 }
 
-class _Bar extends StatelessWidget {
-  const _Bar({
+class StatBar extends StatelessWidget {
+  const StatBar({
     required this.metricLabel,
     required this.valueLabel,
     required this.value,
