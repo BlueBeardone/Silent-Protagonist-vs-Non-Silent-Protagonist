@@ -65,4 +65,17 @@ void main() {
     expect(await cache.get(fetch), const [_game]);
     expect(calls, 2);
   });
+
+  test('caches a non-Steam type through TtlCache', () async {
+    var calls = 0;
+    final cache = TtlCache<int>(ttl: const Duration(seconds: 60));
+    Future<int> fetch() async {
+      calls++;
+      return 42;
+    }
+
+    expect(await cache.get(fetch), 42);
+    expect(await cache.get(fetch), 42);
+    expect(calls, 1);
+  });
 }

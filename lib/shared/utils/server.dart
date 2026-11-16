@@ -378,8 +378,8 @@ typedef StatsFetcher = Future<List<GameStats>> Function();
 ///
 /// The first caller in a window fetches; concurrent callers wait for the same
 /// future. A failed fetch is not cached, so the next caller retries.
-class StatsCache {
-  StatsCache({
+class TtlCache<T> {
+  TtlCache({
     this.ttl = const Duration(seconds: 60),
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
@@ -387,20 +387,20 @@ class StatsCache {
   final Duration ttl;
   final DateTime Function() _now;
 
-  List<GameStats>? _value;
+  T? _value;
   DateTime? _expiresAt;
-  Future<List<GameStats>>? _inFlight;
+  Future<T>? _inFlight;
 
-  Future<List<GameStats>> get(StatsFetcher fetch) {
+  Future<T> get(Future<T> Function() fetch) {
     final now = _now();
     final cached = _value;
     final expiresAt = _expiresAt;
     if (cached != null && expiresAt != null && now.isBefore(expiresAt)) {
-      return Future<List<GameStats>>.value(cached);
+      return Future<T>.value(cached);
     }
     final inFlight = _inFlight;
     if (inFlight != null) return inFlight;
-    final future = Future<List<GameStats>>.sync(fetch).then((value) {
+    final future = Future<T>.sync(fetch).then((value) {
       _value = value;
       _expiresAt = _now().add(ttl);
       return value;
@@ -410,6 +410,10 @@ class StatsCache {
     _inFlight = future;
     return future;
   }
+}
+
+class StatsCache extends TtlCache<List<GameStats>> {
+  StatsCache({super.ttl, super.now});
 }
 
 /// Builds the proxy handler. The browser can't reach Steam or SteamCharts
