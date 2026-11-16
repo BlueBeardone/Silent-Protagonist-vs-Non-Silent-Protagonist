@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'comparison.dart';
 import 'stats.dart';
 
 /// Reddit's public numbers for one game's subreddit.
@@ -80,6 +81,39 @@ List<RedditStats> parseRedditResponse(String body) {
       ),
   ];
 }
+
+/// The two numbers we compare for each subreddit.
+enum RedditMetric { online, members }
+
+/// Picks a game's value for [metric], or null when that lookup failed.
+double? redditMetricValue(RedditStats game, RedditMetric metric) =>
+    switch (metric) {
+      RedditMetric.online => game.online?.toDouble(),
+      RedditMetric.members => game.members?.toDouble(),
+    };
+
+/// Human-readable name for a Reddit metric.
+String redditMetricLabel(RedditMetric metric) => switch (metric) {
+      RedditMetric.online => 'Online now',
+      RedditMetric.members => 'Total members',
+    };
+
+/// One [Comparison] per Reddit metric, totalled across every game.
+List<Comparison> summarizeReddit(List<RedditStats> stats) => [
+      for (final metric in RedditMetric.values)
+        compareValues(
+          label: redditMetricLabel(metric),
+          silent: [
+            for (final game in stats)
+              if (game.camp == Camp.silent) ?redditMetricValue(game, metric),
+          ],
+          nonSilent: [
+            for (final game in stats)
+              if (game.camp == Camp.nonSilent)
+                ?redditMetricValue(game, metric),
+          ],
+        ),
+    ];
 
 /// The subreddit for each game, keyed by Steam appid.
 ///

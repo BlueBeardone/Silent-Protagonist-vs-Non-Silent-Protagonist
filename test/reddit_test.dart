@@ -45,4 +45,49 @@ void main() {
     expect(subreddits[1245620], 'Eldenring');
     expect(subreddits[271590], 'GTAV');
   });
+
+  test('maps Reddit metrics to their fields and labels', () {
+    const game = RedditStats(
+        name: 'E',
+        camp: Camp.silent,
+        appid: 1,
+        subreddit: 'E',
+        online: 10,
+        members: 20);
+    expect(redditMetricValue(game, RedditMetric.online), 10);
+    expect(redditMetricValue(game, RedditMetric.members), 20);
+    expect(redditMetricLabel(RedditMetric.online), 'Online now');
+    expect(redditMetricLabel(RedditMetric.members), 'Total members');
+  });
+
+  test('summarizeReddit skips nulls and totals per camp', () {
+    final summaries = summarizeReddit(const [
+      RedditStats(
+          name: 'a',
+          camp: Camp.silent,
+          appid: 1,
+          subreddit: 'a',
+          online: 10,
+          members: 100),
+      RedditStats(
+          name: 'b',
+          camp: Camp.silent,
+          appid: 2,
+          subreddit: 'b',
+          online: null,
+          members: 50),
+      RedditStats(
+          name: 'c',
+          camp: Camp.nonSilent,
+          appid: 3,
+          subreddit: 'c',
+          online: 5,
+          members: null),
+    ]);
+    expect(summaries[0].label, 'Online now');
+    expect(summaries[0].silentTotal, 10);
+    expect(summaries[0].silentCount, 1);
+    expect(summaries[0].nonSilentTotal, 5);
+    expect(summaries[1].nonSilentCount, 0);
+  });
 }
