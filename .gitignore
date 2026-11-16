@@ -152,3 +152,6 @@ app.*.symbols
 
 # Design/plan documents (kept locally, not tracked)
 docs/
+
+# Local worktrees
+.worktrees/
