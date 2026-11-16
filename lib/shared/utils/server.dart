@@ -533,30 +533,27 @@ typedef RedditFetcher = Future<List<RedditStats>> Function();
 /// touches the network.
 class RedditAuth {
   RedditAuth({
-    required String clientId,
-    required String clientSecret,
+    required this.clientId,
+    required this.clientSecret,
     required this.userAgent,
-    http.Client? client,
+    this.httpClient,
     Uri? tokenEndpoint,
     DateTime Function()? now,
-  })  : _clientId = clientId,
-        _clientSecret = clientSecret,
-        _client = client,
-        _tokenEndpoint = tokenEndpoint ??
+  })  : _tokenEndpoint = tokenEndpoint ??
             Uri.parse('https://www.reddit.com/api/v1/access_token'),
         _now = now ?? DateTime.now;
 
-  final String _clientId;
-  final String _clientSecret;
+  final String clientId;
+  final String clientSecret;
   final String userAgent;
-  final http.Client? _client;
+  final http.Client? httpClient;
   final Uri _tokenEndpoint;
   final DateTime Function() _now;
 
   String? _token;
   DateTime? _expiresAt;
 
-  bool get enabled => _clientId.isNotEmpty && _clientSecret.isNotEmpty;
+  bool get enabled => clientId.isNotEmpty && clientSecret.isNotEmpty;
 
   Future<String?> token() async {
     if (!enabled) return null;
@@ -568,9 +565,9 @@ class RedditAuth {
     _token = null;
     _expiresAt = null;
 
-    final client = _client ?? http.Client();
+    final client = httpClient ?? http.Client();
     try {
-      final credentials = base64Encode(utf8.encode('$_clientId:$_clientSecret'));
+      final credentials = base64Encode(utf8.encode('$clientId:$clientSecret'));
       final response = await client
           .post(
             _tokenEndpoint,
@@ -594,7 +591,7 @@ class RedditAuth {
     } catch (_) {
       return null;
     } finally {
-      if (_client == null) client.close();
+      if (httpClient == null) client.close();
     }
   }
 }

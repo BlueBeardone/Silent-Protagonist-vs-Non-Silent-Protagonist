@@ -223,6 +223,22 @@ Future<void> main(List<String> args) async {
     );
   }
 
+  final redditClientId = env['REDDIT_CLIENT_ID']?.trim() ?? '';
+  final redditClientSecret = env['REDDIT_CLIENT_SECRET']?.trim() ?? '';
+  final rawRedditUserAgent = env['REDDIT_USER_AGENT']?.trim() ?? '';
+  final redditAuth = RedditAuth(
+    clientId: redditClientId,
+    clientSecret: redditClientSecret,
+    userAgent: rawRedditUserAgent.isEmpty
+        ? defaultRedditUserAgent
+        : rawRedditUserAgent,
+  );
+  if (!redditAuth.enabled) {
+    stdout.writeln(
+      'REDDIT_CLIENT_ID/SECRET not set; Reddit numbers will be unavailable.',
+    );
+  }
+
   final store = LazyMongoCommentsStore(
     mongoUri,
     emailEncryptionKey: emailEncryptionKey,
@@ -268,6 +284,11 @@ Future<void> main(List<String> args) async {
 
   final cascade = Cascade()
       .add(comments)
+      .add(redditHandler(
+        () => fetchLiveReddit(redditAuth),
+        rateLimiter: statsLimiter,
+        trustedProxyHops: trustedProxyHops,
+      ))
       .add(statsHandler(
         fetchLiveStats,
         rateLimiter: statsLimiter,

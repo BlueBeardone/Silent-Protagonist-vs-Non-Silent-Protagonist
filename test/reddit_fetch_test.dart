@@ -11,7 +11,7 @@ void main() {
         clientId: '',
         clientSecret: '',
         userAgent: 'x',
-        client: MockClient((_) async {
+        httpClient: MockClient((_) async {
           requests++;
           return http.Response('{}', 200);
         }));
@@ -32,7 +32,7 @@ void main() {
         clientSecret: 'secret',
         userAgent: 'x',
         now: () => clock,
-        client: MockClient((request) async {
+        httpClient: MockClient((request) async {
           tokenCalls++;
           return http.Response(
               '{"access_token":"tok$tokenCalls","expires_in":3600}', 200);
@@ -53,7 +53,7 @@ void main() {
         clientId: 'id',
         clientSecret: 'secret',
         userAgent: 'x',
-        client: MockClient((_) async => http.Response('nope', 401)));
+        httpClient: MockClient((_) async => http.Response('nope', 401)));
     expect(await auth.token(), isNull);
   });
 
@@ -63,7 +63,7 @@ void main() {
         clientId: 'id',
         clientSecret: 'secret',
         userAgent: 'x',
-        client: MockClient((_) async =>
+        httpClient: MockClient((_) async =>
             http.Response('{"access_token":"tok","expires_in":3600}', 200)));
 
     final stats = await fetchLiveReddit(auth, client: MockClient((request) async {
@@ -85,7 +85,7 @@ void main() {
         clientId: 'id',
         clientSecret: 'secret',
         userAgent: 'x',
-        client: MockClient((_) async =>
+        httpClient: MockClient((_) async =>
             http.Response('{"access_token":"tok","expires_in":3600}', 200)));
     final stats = await fetchLiveReddit(auth,
         client: MockClient((_) async => throw StateError('offline')));
