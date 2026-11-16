@@ -101,4 +101,23 @@ void main() {
 
     expect(find.textContaining('Reddit data unavailable'), findsOneWidget);
   });
+
+  testWidgets('an incomplete measure names the short side and its counts',
+      (tester) async {
+    // Three silent games, the last with no Steam values, so the Steam rows are
+    // short two of three on the silent side and complete on the other.
+    await tester.pumpWidget(host(const [
+      GameStats(
+          name: 'A', camp: Camp.silent, appid: 1, current: 100, avg30d: 10),
+      GameStats(
+          name: 'B', camp: Camp.silent, appid: 2, current: 200, avg30d: 20),
+      GameStats(name: 'C', camp: Camp.silent, appid: 3),
+      GameStats(
+          name: 'D', camp: Camp.nonSilent, appid: 4, current: 50, avg30d: 5),
+    ], const []));
+
+    // The missing side is named, not just an ambiguous combined fraction.
+    expect(find.text('Steam current players (Silent 2/3)'), findsOneWidget);
+    expect(find.text('Steam 30-day average (Silent 2/3)'), findsOneWidget);
+  });
 }

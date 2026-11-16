@@ -25,8 +25,10 @@ class _RedditComparisonState extends State<RedditComparison> {
 
   @override
   Widget build(BuildContext context) {
-    final everythingFailed = widget.stats.isNotEmpty &&
-        widget.stats.every((game) => game.online == null && game.members == null);
+    // Judged by data, not by the list being non-empty: an empty response has
+    // zero non-null values, and the spec treats that as unavailable too.
+    final everythingFailed = widget.stats
+        .every((game) => game.online == null && game.members == null);
     if (everythingFailed) {
       return const _UnavailableNote();
     }

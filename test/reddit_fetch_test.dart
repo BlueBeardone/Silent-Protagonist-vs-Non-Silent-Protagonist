@@ -91,4 +91,32 @@ void main() {
         client: MockClient((_) async => throw StateError('offline')));
     expect(stats.every((s) => s.online == null), isTrue);
   });
+
+  test('a null active_user_count dashes both values for that game only',
+      () async {
+    final auth = RedditAuth(
+        clientId: 'id',
+        clientSecret: 'secret',
+        userAgent: 'x',
+        httpClient: MockClient((_) async =>
+            http.Response('{"access_token":"tok","expires_in":3600}', 200)));
+
+    final stats = await fetchLiveReddit(auth, client: MockClient((request) async {
+      // Reddit omits active_user_count on some subreddits while still
+      // returning subscribers, so only one of the two fields is usable.
+      if (request.url.path.contains('GTAV')) {
+        return http.Response(
+            '{"data":{"active_user_count":null,"subscribers":123}}', 200);
+      }
+      return http.Response(
+          '{"data":{"active_user_count":10,"subscribers":20}}', 200);
+    }));
+
+    final gta = stats.firstWhere((s) => s.subreddit == 'GTAV');
+    expect(gta.online, isNull);
+    expect(gta.members, isNull, reason: 'a half-read subreddit must dash both');
+    final elden = stats.firstWhere((s) => s.subreddit == 'Eldenring');
+    expect(elden.online, 10);
+    expect(elden.members, 20);
+  });
 }

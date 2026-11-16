@@ -61,3 +61,17 @@ List<Comparison> overallRows(
     ),
   ];
 }
+
+/// Whether at least one Steam game resolved a value the Overall rows show.
+///
+/// The Overall rows are current players and the 30-day average, so `avg6m` and
+/// `peakAllTime` do not count here even though the Chart page shows them.
+bool steamHasData(List<GameStats> steam) =>
+    steam.any((game) => game.current != null || game.avg30d != null);
+
+/// Whether at least one subreddit lookup resolved a value.
+///
+/// Judging availability by data rather than by whether the future threw is
+/// what lets the Overall page tell "credentials unset" apart from a real load.
+bool redditHasData(List<RedditStats> reddit) =>
+    reddit.any((game) => game.online != null || game.members != null);

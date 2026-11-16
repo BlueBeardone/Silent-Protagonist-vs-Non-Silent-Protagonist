@@ -108,6 +108,12 @@ void main() {
     expect(find.textContaining('Reddit data unavailable'), findsOneWidget);
   });
 
+  testWidgets('an empty response shows the unavailable note', (tester) async {
+    await tester.pumpWidget(host(const []));
+
+    expect(find.textContaining('Reddit data unavailable'), findsOneWidget);
+  });
+
   testWidgets('a long game name does not overflow a narrow host',
       (tester) async {
     await tester.pumpWidget(host([

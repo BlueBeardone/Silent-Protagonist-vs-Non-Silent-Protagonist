@@ -533,18 +533,24 @@ typedef RedditFetcher = Future<List<RedditStats>> Function();
 /// touches the network.
 class RedditAuth {
   RedditAuth({
-    required this.clientId,
-    required this.clientSecret,
+    required String clientId,
+    required String clientSecret,
     required this.userAgent,
     this.httpClient,
     Uri? tokenEndpoint,
     DateTime Function()? now,
   })  : _tokenEndpoint = tokenEndpoint ??
             Uri.parse('https://www.reddit.com/api/v1/access_token'),
-        _now = now ?? DateTime.now;
+        _now = now ?? DateTime.now {
+    _clientId = clientId;
+    _clientSecret = clientSecret;
+  }
 
-  final String clientId;
-  final String clientSecret;
+  /// Credentials stay private so they cannot be read off the public surface.
+  /// They are assigned in the body because an initializer-list assignment
+  /// would trip `prefer_initializing_formals`.
+  late final String _clientId;
+  late final String _clientSecret;
   final String userAgent;
   final http.Client? httpClient;
   final Uri _tokenEndpoint;
@@ -553,7 +559,7 @@ class RedditAuth {
   String? _token;
   DateTime? _expiresAt;
 
-  bool get enabled => clientId.isNotEmpty && clientSecret.isNotEmpty;
+  bool get enabled => _clientId.isNotEmpty && _clientSecret.isNotEmpty;
 
   Future<String?> token() async {
     if (!enabled) return null;
@@ -567,7 +573,8 @@ class RedditAuth {
 
     final client = httpClient ?? http.Client();
     try {
-      final credentials = base64Encode(utf8.encode('$clientId:$clientSecret'));
+      final credentials =
+          base64Encode(utf8.encode('$_clientId:$_clientSecret'));
       final response = await client
           .post(
             _tokenEndpoint,

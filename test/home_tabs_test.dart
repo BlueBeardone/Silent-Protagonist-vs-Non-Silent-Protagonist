@@ -123,6 +123,38 @@ void main() {
     expect(find.text('Retry'), findsOneWidget);
   });
 
+  testWidgets(
+      'both sources resolving to all-null data shows the Overall retry panel',
+      (tester) async {
+    // Neither loader throws, but neither source produced a usable number:
+    // this is the "credentials unset plus Steam upstream down" case.
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        loadStats: () async => const [
+          GameStats(name: 'Elden Ring', camp: Camp.silent, appid: 1),
+          GameStats(name: 'God of War', camp: Camp.nonSilent, appid: 2),
+        ],
+        loadReddit: () async => const [
+          RedditStats(
+              name: 'Elden Ring', camp: Camp.silent, appid: 1, subreddit: 'a'),
+          RedditStats(
+              name: 'God of War',
+              camp: Camp.nonSilent,
+              appid: 2,
+              subreddit: 'b'),
+        ],
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await openDrawer(tester);
+    await tester.tap(find.text('Overall'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Retry'), findsOneWidget);
+    expect(find.textContaining('level across'), findsNothing);
+  });
+
   testWidgets('opens on the chart', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();

@@ -22,14 +22,8 @@ class OverallComparison extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final rows = overallRows(steam, reddit);
-    final steamAvailable = steam.isNotEmpty &&
-        steam.any((game) =>
-            game.current != null ||
-            game.avg30d != null ||
-            game.avg6m != null ||
-            game.peakAllTime != null);
-    final redditAvailable = reddit.isNotEmpty &&
-        reddit.any((game) => game.online != null || game.members != null);
+    final steamAvailable = steamHasData(steam);
+    final redditAvailable = redditHasData(reddit);
 
     final steamSilent = steam.where((g) => g.camp == Camp.silent).length;
     final steamNonSilent = steam.where((g) => g.camp == Camp.nonSilent).length;
@@ -144,10 +138,17 @@ String _measureLabel(
   int index,
   int Function(int, bool) denominatorFor,
 ) {
-  final have = row.silentCount + row.nonSilentCount;
-  final total = denominatorFor(index, true) + denominatorFor(index, false);
-  if (total == 0 || have >= total) return row.label;
-  return '${row.label} ($have/$total)';
+  if (denominatorFor(index, true) == 0 && denominatorFor(index, false) == 0) {
+    return row.label;
+  }
+  final short = <String>[
+    if (row.silentCount < denominatorFor(index, true))
+      'Silent ${row.silentCount}/${denominatorFor(index, true)}',
+    if (row.nonSilentCount < denominatorFor(index, false))
+      'Non-silent ${row.nonSilentCount}/${denominatorFor(index, false)}',
+  ];
+  if (short.isEmpty) return row.label;
+  return '${row.label} (${short.join(', ')})';
 }
 
 /// The same rows as cards, so a narrow screen never pans sideways.
@@ -269,11 +270,13 @@ class _SourceNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final env = source == 'Reddit'
-        ? 'REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET'
-        : 'the Steam proxy';
+    final message = source == 'Reddit'
+        ? 'Reddit data unavailable — set REDDIT_CLIENT_ID and '
+            'REDDIT_CLIENT_SECRET on the proxy and refresh.'
+        : 'Steam data unavailable — /api/stats returned no players. '
+            'Refresh to try again.';
     return Text(
-      '$source data unavailable — set $env and refresh.',
+      message,
       style: theme.textTheme.bodySmall?.copyWith(
         color: theme.colorScheme.error,
       ),

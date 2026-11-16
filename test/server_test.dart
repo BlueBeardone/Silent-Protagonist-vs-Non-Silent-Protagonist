@@ -91,5 +91,30 @@ void main() {
       expect(body[1]['online'], isNull);
       expect(body[1]['members'], isNull);
     });
+
+    test('reuses one fetch across requests within the TTL', () async {
+      var fetches = 0;
+      final handler = redditHandler(() async {
+        fetches++;
+        return const [
+          RedditStats(
+              name: 'Elden Ring',
+              camp: Camp.silent,
+              appid: 1245620,
+              subreddit: 'Eldenring',
+              online: 1,
+              members: 2),
+        ];
+      });
+
+      final first = await handler(
+          Request('GET', Uri.parse('http://localhost/api/reddit')));
+      await first.readAsString();
+      final second = await handler(
+          Request('GET', Uri.parse('http://localhost/api/reddit')));
+      await second.readAsString();
+
+      expect(fetches, 1);
+    });
   });
 }

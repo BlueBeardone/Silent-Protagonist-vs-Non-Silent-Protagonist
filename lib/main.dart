@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 
 import 'comments/logic/comments_api.dart';
 import 'comments/ui/community_tab.dart';
+import 'stats/logic/overall.dart';
 import 'stats/logic/reddit.dart';
 import 'stats/logic/stats.dart';
 import 'stats/ui/chart.dart';
@@ -120,8 +121,9 @@ class _HomePageState extends State<HomePage> {
     return parseRedditResponse(response.body);
   }
 
-  /// Waits for both sources, keeping whichever side loaded. When neither did,
-  /// the tab shows its retry panel instead of an empty comparison.
+  /// Waits for both sources, keeping whichever side loaded. When neither side
+  /// produced a single number, the tab shows its retry panel: an all-dash table
+  /// with a "level" verdict would claim a comparison that never happened.
   Future<_OverallData> _loadOverall() async {
     var steam = <GameStats>[];
     var reddit = <RedditStats>[];
@@ -135,7 +137,7 @@ class _HomePageState extends State<HomePage> {
     } catch (_) {
       // Leave Reddit empty; the page notes it is unavailable.
     }
-    if (steam.isEmpty && reddit.isEmpty) {
+    if (!steamHasData(steam) && !redditHasData(reddit)) {
       throw Exception('Both stats sources are unavailable.');
     }
     return _OverallData(steam: steam, reddit: reddit);
@@ -199,7 +201,7 @@ class _HomePageState extends State<HomePage> {
         return _AsyncTab<List<RedditStats>>(
           future: _reddit,
           onRetry: _refresh,
-          errorMessage: 'Could not load Reddit numbers.',
+          errorMessage: 'Could not load Reddit numbers from /api/reddit.',
           builder: (stats) => RedditComparison(stats: stats),
         );
       case 3:
