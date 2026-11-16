@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shelf/shelf.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/server.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/stats/logic/reddit.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/stats/logic/stats.dart';
 
 void main() {
@@ -58,6 +59,37 @@ void main() {
           'peakAllTime': null,
         },
       ]);
+    });
+  });
+
+  group('redditHandler', () {
+    test('serves fetched Reddit stats as JSON from GET /api/reddit', () async {
+      final handler = redditHandler(() async => const [
+            RedditStats(
+                name: 'Elden Ring',
+                camp: Camp.silent,
+                appid: 1245620,
+                subreddit: 'Eldenring',
+                online: 15269,
+                members: 1234567),
+            RedditStats(
+                name: 'GTA V',
+                camp: Camp.nonSilent,
+                appid: 271590,
+                subreddit: 'GTAV'),
+          ]);
+
+      final response = await handler(
+          Request('GET', Uri.parse('http://localhost/api/reddit')));
+
+      expect(response.statusCode, 200);
+      expect(response.headers['access-control-allow-origin'], '*');
+      expect(response.headers['cache-control'], contains('max-age=300'));
+      final body = jsonDecode(await response.readAsString()) as List;
+      expect(body[0]['subreddit'], 'Eldenring');
+      expect(body[0]['online'], 15269);
+      expect(body[1]['online'], isNull);
+      expect(body[1]['members'], isNull);
     });
   });
 }

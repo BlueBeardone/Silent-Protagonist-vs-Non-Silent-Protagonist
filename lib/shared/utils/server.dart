@@ -7,6 +7,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import '../../comments/logic/classifier.dart';
 import '../../comments/logic/comments.dart';
+import '../../stats/logic/reddit.dart';
 import '../../stats/logic/stats.dart';
 import 'rate_limit.dart';
 import 'spam_guard.dart';
@@ -515,4 +516,188 @@ Future<GameStats> _fetchOne(http.Client client, GameStats game) async {
     avg6m: avg6m,
     peakAllTime: peakAllTime,
   );
+}
+
+/// The user agent Reddit asks every API client to send.
+const String defaultRedditUserAgent =
+    'linux:silent-protagonist-vs-non-silent:1.0 (by /u/unknown)';
+
+/// Loads every game's Reddit numbers, or nulls when they could not be read.
+typedef RedditFetcher = Future<List<RedditStats>> Function();
+
+/// Holds the app-only OAuth token Reddit needs for `/about.json`.
+///
+/// The token is fetched with `grant_type=client_credentials` and cached until
+/// shortly before it expires. A failed refresh clears the cache so the next
+/// call tries again. When credentials are missing this is disabled and never
+/// touches the network.
+class RedditAuth {
+  RedditAuth({
+    required String clientId,
+    required String clientSecret,
+    required this.userAgent,
+    http.Client? client,
+    Uri? tokenEndpoint,
+    DateTime Function()? now,
+  })  : _clientId = clientId,
+        _clientSecret = clientSecret,
+        _client = client,
+        _tokenEndpoint = tokenEndpoint ??
+            Uri.parse('https://www.reddit.com/api/v1/access_token'),
+        _now = now ?? DateTime.now;
+
+  final String _clientId;
+  final String _clientSecret;
+  final String userAgent;
+  final http.Client? _client;
+  final Uri _tokenEndpoint;
+  final DateTime Function() _now;
+
+  String? _token;
+  DateTime? _expiresAt;
+
+  bool get enabled => _clientId.isNotEmpty && _clientSecret.isNotEmpty;
+
+  Future<String?> token() async {
+    if (!enabled) return null;
+    final cached = _token;
+    final expiresAt = _expiresAt;
+    if (cached != null && expiresAt != null && _now().isBefore(expiresAt)) {
+      return cached;
+    }
+    _token = null;
+    _expiresAt = null;
+
+    final client = _client ?? http.Client();
+    try {
+      final credentials = base64Encode(utf8.encode('$_clientId:$_clientSecret'));
+      final response = await client
+          .post(
+            _tokenEndpoint,
+            headers: {
+              'authorization': 'Basic $credentials',
+              'content-type': 'application/x-www-form-urlencoded',
+              'user-agent': userAgent,
+            },
+            body: 'grant_type=client_credentials',
+          )
+          .timeout(const Duration(seconds: 5));
+      if (response.statusCode != 200) return null;
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) return null;
+      final token = decoded['access_token'];
+      final expiresIn = decoded['expires_in'];
+      if (token is! String || expiresIn is! int) return null;
+      _token = token;
+      _expiresAt = _now().add(Duration(seconds: expiresIn - 60));
+      return token;
+    } catch (_) {
+      return null;
+    } finally {
+      if (_client == null) client.close();
+    }
+  }
+}
+
+/// Fetches live numbers for every game's subreddit.
+///
+/// A missing token, a timeout, or a failed lookup leaves that game's fields
+/// null; the request never throws.
+Future<List<RedditStats>> fetchLiveReddit(
+  RedditAuth auth, {
+  http.Client? client,
+}) async {
+  RedditStats blank(GameStats game) => RedditStats(
+        name: game.name,
+        camp: game.camp,
+        appid: game.appid,
+        subreddit: subreddits[game.appid] ?? '',
+      );
+
+  if (!auth.enabled) return [for (final game in games) blank(game)];
+  final token = await auth.token();
+  if (token == null) return [for (final game in games) blank(game)];
+
+  final httpClient = client ?? http.Client();
+  try {
+    return await Future.wait([
+      for (final game in games) _fetchRedditOne(httpClient, auth, token, game),
+    ]);
+  } finally {
+    if (client == null) httpClient.close();
+  }
+}
+
+Future<RedditStats> _fetchRedditOne(
+  http.Client client,
+  RedditAuth auth,
+  String token,
+  GameStats game,
+) async {
+  final subreddit = subreddits[game.appid] ?? '';
+  try {
+    final response = await client
+        .get(
+          Uri.parse(
+              'https://oauth.reddit.com/r/$subreddit/about.json?raw_json=1'),
+          headers: {
+            'authorization': 'Bearer $token',
+            'user-agent': auth.userAgent,
+          },
+        )
+        .timeout(const Duration(seconds: 5));
+    if (response.statusCode == 200) {
+      final about = parseRedditAbout(response.body);
+      return RedditStats(
+        name: game.name,
+        camp: game.camp,
+        appid: game.appid,
+        subreddit: subreddit,
+        online: about.online,
+        members: about.members,
+      );
+    }
+  } catch (_) {
+    // Leave this game's fields null; the UI shows a dash.
+  }
+  return RedditStats(
+    name: game.name,
+    camp: game.camp,
+    appid: game.appid,
+    subreddit: subreddit,
+  );
+}
+
+/// Builds the Reddit proxy handler.
+///
+/// Reddit sends no CORS headers and requires OAuth, so the browser cannot call
+/// it directly. The response is cached for [cacheTtl] (5 minutes by default,
+/// because Reddit's app-only limit is 100 queries/minute) and rate-limited per
+/// client IP.
+Handler redditHandler(
+  RedditFetcher fetchReddit, {
+  RateLimiter? rateLimiter,
+  int trustedProxyHops = 0,
+  TtlCache<List<RedditStats>>? cache,
+  Duration cacheTtl = const Duration(minutes: 5),
+}) {
+  final redditCache = cache ?? TtlCache<List<RedditStats>>(ttl: cacheTtl);
+  final router = Router()
+    ..get('/api/reddit', (Request request) async {
+      if (rateLimiter != null &&
+          !await rateLimiter.allow(_clientIp(request, trustedProxyHops))) {
+        return _jsonError(429, 'Too many requests. Please slow down.');
+      }
+      final stats = await redditCache.get(fetchReddit);
+      return Response.ok(
+        jsonEncode([for (final game in stats) game.toJson()]),
+        headers: {
+          'content-type': 'application/json',
+          'access-control-allow-origin': '*',
+          'cache-control': 'public, max-age=300',
+          'vary': 'Origin',
+        },
+      );
+    });
+  return router.call;
 }
