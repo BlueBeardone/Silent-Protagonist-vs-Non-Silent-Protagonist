@@ -157,6 +157,7 @@ class _GameGroup extends StatelessWidget {
 
 class StatBar extends StatelessWidget {
   const StatBar({
+    super.key,
     required this.metricLabel,
     required this.valueLabel,
     required this.value,
