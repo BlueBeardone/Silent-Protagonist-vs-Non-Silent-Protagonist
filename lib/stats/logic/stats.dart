@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:html/parser.dart' as html_parser;
 
+import 'comparison.dart';
+
 int parseCurrentPlayers(String body) {
   final decoded = jsonDecode(body) as Map<String, dynamic>;
   final response = decoded['response'] as Map<String, dynamic>;
@@ -174,17 +176,22 @@ class MetricSummary {
     return silentTotal > nonSilentTotal ? Camp.silent : Camp.nonSilent;
   }
 
+  Comparison get _comparison => Comparison(
+        label: metricLabel(metric),
+        silentTotal: silentTotal,
+        nonSilentTotal: nonSilentTotal,
+        silentAverage: silentAverage,
+        nonSilentAverage: nonSilentAverage,
+        silentCount: silentCount,
+        nonSilentCount: nonSilentCount,
+      );
+
   /// How many players separate the two camps (always positive).
-  double get margin => (silentTotal - nonSilentTotal).abs();
+  double get margin => _comparison.margin;
 
   /// The margin as a percentage of the smaller total, or null when the smaller
   /// total is zero (the gap cannot then be expressed as a percentage).
-  double? get marginPercent {
-    final smaller =
-        silentTotal < nonSilentTotal ? silentTotal : nonSilentTotal;
-    if (smaller <= 0) return null;
-    return margin / smaller * 100;
-  }
+  double? get marginPercent => _comparison.marginPercent;
 }
 
 /// Totals one metric across both camps.
