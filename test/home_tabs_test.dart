@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/comments/ui/community_tab.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/main.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/stats/logic/reddit.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/stats/logic/stats.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/stats/ui/overall.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/stats/ui/reddit_chart.dart';
 
 void main() {
   const sample = <GameStats>[
@@ -22,7 +25,29 @@ void main() {
         avg6m: 300),
   ];
 
-  Widget app() => MaterialApp(home: HomePage(loadStats: () async => sample));
+  const redditSample = <RedditStats>[
+    RedditStats(
+        name: 'Elden Ring',
+        camp: Camp.silent,
+        appid: 1,
+        subreddit: 'Eldenring',
+        online: 900,
+        members: 9000),
+    RedditStats(
+        name: 'God of War',
+        camp: Camp.nonSilent,
+        appid: 2,
+        subreddit: 'GodofWar',
+        online: 100,
+        members: 1000),
+  ];
+
+  Widget app() => MaterialApp(
+        home: HomePage(
+          loadStats: () async => sample,
+          loadReddit: () async => redditSample,
+        ),
+      );
 
   /// Opens the left drawer via its hamburger button.
   Future<void> openDrawer(WidgetTester tester) async {
@@ -41,6 +66,61 @@ void main() {
     expect(find.text('Chart'), findsOneWidget);
     expect(find.text('Numbers'), findsOneWidget);
     expect(find.text('Community'), findsOneWidget);
+    expect(find.text('Reddit'), findsOneWidget);
+    expect(find.text('Overall'), findsOneWidget);
+  });
+
+  testWidgets('Reddit destination shows the Reddit page', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await openDrawer(tester);
+    await tester.tap(find.text('Reddit'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RedditComparison), findsOneWidget);
+  });
+
+  testWidgets('Overall destination shows the combined page', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    await openDrawer(tester);
+    await tester.tap(find.text('Overall'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(OverallComparison), findsOneWidget);
+    expect(find.text('Steam current players'), findsOneWidget);
+  });
+
+  testWidgets('a Reddit failure does not break the Steam chart',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        loadStats: () async => sample,
+        loadReddit: () async => throw Exception('reddit down'),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Elden Ring'), findsOneWidget);
+  });
+
+  testWidgets('both sources failing shows the Overall retry panel',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: HomePage(
+        loadStats: () async => throw Exception('steam down'),
+        loadReddit: () async => throw Exception('reddit down'),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await openDrawer(tester);
+    await tester.tap(find.text('Overall'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Retry'), findsOneWidget);
   });
 
   testWidgets('opens on the chart', (tester) async {

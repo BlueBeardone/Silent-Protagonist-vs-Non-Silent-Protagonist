@@ -3,11 +3,15 @@ import 'package:http/http.dart' as http;
 
 import 'comments/logic/comments_api.dart';
 import 'comments/ui/community_tab.dart';
+import 'stats/logic/reddit.dart';
 import 'stats/logic/stats.dart';
 import 'stats/ui/chart.dart';
 import 'stats/ui/numbers.dart';
+import 'stats/ui/overall.dart';
+import 'stats/ui/reddit_chart.dart';
 
 const proxyUrl = '$apiBaseUrl/api/stats';
+const redditUrl = '$apiBaseUrl/api/reddit';
 
 /// Base URL for the comments API, without a trailing slash.
 ///
@@ -32,6 +36,10 @@ const wideBreakpoint = 800.0;
 /// without touching the network.
 typedef StatsLoader = Future<List<GameStats>> Function();
 
+/// Loads the Reddit numbers shown on the Reddit and Overall pages. Injectable
+/// so tests can supply fixtures without touching the network.
+typedef RedditLoader = Future<List<RedditStats>> Function();
+
 void main() {
   runApp(const App());
 }
@@ -50,10 +58,13 @@ class App extends StatelessWidget {
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, this.loadStats, this.api});
+  const HomePage({super.key, this.loadStats, this.loadReddit, this.api});
 
   /// Overrides how the stats are fetched; null uses the local proxy.
   final StatsLoader? loadStats;
+
+  /// Overrides how the Reddit numbers are fetched; null uses the local proxy.
+  final RedditLoader? loadReddit;
 
   /// Overrides the comments client used by the Community tab; null builds a
   /// real same-origin client.
@@ -63,21 +74,35 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+class _OverallData {
+  const _OverallData({required this.steam, required this.reddit});
+
+  final List<GameStats> steam;
+  final List<RedditStats> reddit;
+}
+
 class _HomePageState extends State<HomePage> {
   late Future<List<GameStats>> _stats;
+  late Future<List<RedditStats>> _reddit;
+  late Future<_OverallData> _overall;
   late final CommentsApi _api = widget.api ?? CommentsApi(baseUrl: apiBaseUrl);
 
   /// Which destination in the left drawer is showing: 0 chart, 1 numbers,
-  /// 2 community.
+  /// 2 reddit, 3 overall, 4 community.
   int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _stats = _load();
+    _reddit = _loadReddit()..ignore();
+    _overall = _loadOverall()..ignore();
   }
 
   Future<List<GameStats>> _load() => (widget.loadStats ?? _loadFromProxy)();
+
+  Future<List<RedditStats>> _loadReddit() =>
+      (widget.loadReddit ?? _loadRedditFromProxy)();
 
   Future<List<GameStats>> _loadFromProxy() async {
     final response = await http.get(Uri.parse(proxyUrl));
@@ -87,7 +112,40 @@ class _HomePageState extends State<HomePage> {
     return parseStatsResponse(response.body);
   }
 
-  void _refresh() => setState(() => _stats = _load());
+  Future<List<RedditStats>> _loadRedditFromProxy() async {
+    final response = await http.get(Uri.parse(redditUrl));
+    if (response.statusCode != 200) {
+      throw Exception('Proxy returned ${response.statusCode}');
+    }
+    return parseRedditResponse(response.body);
+  }
+
+  /// Waits for both sources, keeping whichever side loaded. When neither did,
+  /// the tab shows its retry panel instead of an empty comparison.
+  Future<_OverallData> _loadOverall() async {
+    var steam = <GameStats>[];
+    var reddit = <RedditStats>[];
+    try {
+      steam = await _stats;
+    } catch (_) {
+      // Leave Steam empty; the page notes it is unavailable.
+    }
+    try {
+      reddit = await _reddit;
+    } catch (_) {
+      // Leave Reddit empty; the page notes it is unavailable.
+    }
+    if (steam.isEmpty && reddit.isEmpty) {
+      throw Exception('Both stats sources are unavailable.');
+    }
+    return _OverallData(steam: steam, reddit: reddit);
+  }
+
+  void _refresh() => setState(() {
+        _stats = _load();
+        _reddit = _loadReddit()..ignore();
+        _overall = _loadOverall()..ignore();
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -119,6 +177,8 @@ class _HomePageState extends State<HomePage> {
       destinations: const [
         NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Chart'),
         NavigationDestination(icon: Icon(Icons.tag), label: 'Numbers'),
+        NavigationDestination(icon: Icon(Icons.reddit), label: 'Reddit'),
+        NavigationDestination(icon: Icon(Icons.insights), label: 'Overall'),
         NavigationDestination(icon: Icon(Icons.forum), label: 'Community'),
       ],
     );
@@ -130,16 +190,31 @@ class _HomePageState extends State<HomePage> {
   Widget _buildBody() {
     switch (_selectedIndex) {
       case 1:
-        return _StatsTab(
-          stats: _stats,
+        return _AsyncTab<List<GameStats>>(
+          future: _stats,
           onRetry: _refresh,
           builder: (stats) => NumbersComparison(stats: stats),
         );
       case 2:
+        return _AsyncTab<List<RedditStats>>(
+          future: _reddit,
+          onRetry: _refresh,
+          errorMessage: 'Could not load Reddit numbers.',
+          builder: (stats) => RedditComparison(stats: stats),
+        );
+      case 3:
+        return _AsyncTab<_OverallData>(
+          future: _overall,
+          onRetry: _refresh,
+          errorMessage: 'Could not load either stats source.',
+          builder: (data) =>
+              OverallComparison(steam: data.steam, reddit: data.reddit),
+        );
+      case 4:
         return CommunityTab(api: _api);
       default:
-        return _StatsTab(
-          stats: _stats,
+        return _AsyncTab<List<GameStats>>(
+          future: _stats,
           onRetry: _refresh,
           builder: (stats) => ComparisonChart(stats: stats),
         );
@@ -179,10 +254,22 @@ class _HomePageState extends State<HomePage> {
             onTap: () => _select(1, context),
           ),
           _DrawerEntry(
-            icon: Icons.forum,
-            label: 'Community',
+            icon: Icons.reddit,
+            label: 'Reddit',
             selected: _selectedIndex == 2,
             onTap: () => _select(2, context),
+          ),
+          _DrawerEntry(
+            icon: Icons.insights,
+            label: 'Overall',
+            selected: _selectedIndex == 3,
+            onTap: () => _select(3, context),
+          ),
+          _DrawerEntry(
+            icon: Icons.forum,
+            label: 'Community',
+            selected: _selectedIndex == 4,
+            onTap: () => _select(4, context),
           ),
         ],
       ),
@@ -220,24 +307,26 @@ class _DrawerEntry extends StatelessWidget {
   }
 }
 
-/// Renders [builder] with the loaded stats, or this tab's own loading/error
-/// state derived from [stats]. Keeping the state per-tab lets the Community
+/// Renders [builder] with the loaded value, or this tab's own loading/error
+/// state derived from [future]. Keeping the state per-tab lets the Community
 /// tab stay reachable even when the stats load fails.
-class _StatsTab extends StatelessWidget {
-  const _StatsTab({
-    required this.stats,
+class _AsyncTab<T> extends StatelessWidget {
+  const _AsyncTab({
+    required this.future,
     required this.onRetry,
     required this.builder,
+    this.errorMessage = 'Could not reach the local proxy.',
   });
 
-  final Future<List<GameStats>> stats;
+  final Future<T> future;
   final VoidCallback onRetry;
-  final Widget Function(List<GameStats> stats) builder;
+  final Widget Function(T value) builder;
+  final String errorMessage;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<GameStats>>(
-      future: stats,
+    return FutureBuilder<T>(
+      future: future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -247,7 +336,7 @@ class _StatsTab extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Could not reach the local proxy.'),
+                Text(errorMessage),
                 const SizedBox(height: 8),
                 Text(
                   'Start it with: dart run bin/server.dart',
@@ -262,7 +351,11 @@ class _StatsTab extends StatelessWidget {
             ),
           );
         }
-        return builder(snapshot.data!);
+        final value = snapshot.data;
+        if (value == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return builder(value);
       },
     );
   }
