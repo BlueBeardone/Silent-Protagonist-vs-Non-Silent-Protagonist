@@ -70,22 +70,30 @@ String? parseTwitchGameId(String body) {
 
 /// Counts the live channels and sums their viewers on one `/streams` page.
 ///
-/// A body with no `data` array is treated as an empty page, not an error:
-/// Twitch omits `data` rather than sending an empty list in some cases.
+/// A page with an empty `data` array is a real zero. A body without one is
+/// malformed, so it throws: turning that into zero would count a failed
+/// lookup as evidence that nothing is live.
 TwitchStreamsPage parseTwitchStreamsPage(String body) {
   final decoded = jsonDecode(body);
   if (decoded is! Map<String, dynamic>) {
-    return const TwitchStreamsPage(channels: 0, viewers: 0);
+    throw FormatException('Twitch streams response was not an object: $body');
   }
   final data = decoded['data'];
-  final streams = data is List ? data : const [];
+  if (data is! List) {
+    throw FormatException('Twitch streams response had no data list: $body');
+  }
   var channels = 0;
   var viewers = 0;
-  for (final stream in streams) {
-    if (stream is! Map<String, dynamic>) continue;
+  for (final stream in data) {
+    if (stream is! Map<String, dynamic>) {
+      throw FormatException('Twitch stream entry was not an object: $body');
+    }
     final count = stream['viewer_count'];
+    if (count is! int) {
+      throw FormatException('Twitch stream had no viewer_count: $body');
+    }
     channels++;
-    if (count is int) viewers += count;
+    viewers += count;
   }
   final pagination = decoded['pagination'];
   final cursor =

@@ -131,6 +131,24 @@ void main() {
     expect(find.text('0'), findsWidgets);
   });
 
+  testWidgets('a one-sided result is not called a tie', (tester) async {
+    // Only the silent camp resolved, so there is nothing to compare against;
+    // saying "equally active" would assert a comparison that never happened.
+    await tester.pumpWidget(host(const [
+      TwitchStats(
+          name: 'A',
+          camp: Camp.silent,
+          appid: 1,
+          category: 'a',
+          channels: 10,
+          viewers: 100),
+      TwitchStats(name: 'B', camp: Camp.nonSilent, appid: 2, category: 'b'),
+    ]));
+
+    expect(find.text('Not enough Twitch data to compare'), findsOneWidget);
+    expect(find.text('Both sides are equally active'), findsNothing);
+  });
+
   testWidgets('a long game name does not overflow a narrow host',
       (tester) async {
     await tester.pumpWidget(host([

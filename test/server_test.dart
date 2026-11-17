@@ -84,7 +84,7 @@ void main() {
 
       expect(response.statusCode, 200);
       expect(response.headers['access-control-allow-origin'], '*');
-      expect(response.headers['cache-control'], contains('max-age=300'));
+      expect(response.headers['cache-control'], contains('max-age=60'));
       final body = jsonDecode(await response.readAsString()) as List;
       expect(body[0]['category'], 'Elden Ring');
       expect(body[0]['viewers'], 15269);

@@ -154,6 +154,8 @@ class _TwitchVerdictPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final comparable =
+        rows.any((row) => row.silentCount > 0 && row.nonSilentCount > 0);
     final leader = overallLeader(rows);
     final deciding = decidingRow(rows);
 
@@ -174,16 +176,25 @@ class _TwitchVerdictPanel extends StatelessWidget {
             Text(_metricLine(row), style: theme.textTheme.bodyMedium),
           const SizedBox(height: 12),
           Text(
-            leader == null
-                ? 'Both sides are equally active'
-                : '${campLabel(leader)} categories are ahead overall',
+            !comparable
+                ? 'Not enough Twitch data to compare'
+                : leader == null
+                    ? 'Both sides are equally active'
+                    : '${campLabel(leader)} categories are ahead overall',
             style: theme.textTheme.titleMedium!.copyWith(
               fontWeight: FontWeight.bold,
-              color: leader == null ? null : campColor(leader),
+              color: !comparable || leader == null
+                  ? null
+                  : campColor(leader),
             ),
           ),
           const SizedBox(height: 4),
-          Text(_decidingLine(deciding), style: theme.textTheme.bodyMedium),
+          Text(
+            !comparable
+                ? 'Some categories did not resolve on both sides.'
+                : _decidingLine(deciding),
+            style: theme.textTheme.bodyMedium,
+          ),
         ],
       ),
     );

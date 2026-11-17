@@ -177,6 +177,37 @@ void main() {
     expect(elden.viewers, isNull);
   });
 
+  test('a failure after the first page still dashes the whole game',
+      () async {
+    final stats = await fetchWith(twitchClient(
+      games: (_) async => gamesBody('21779'),
+      streams: (request) async =>
+          request.url.queryParameters['after'] == null
+              ? streamsBody([10, 20], cursor: 'next')
+              : http.Response('rate limited', 429),
+    ));
+
+    final elden = stats.firstWhere((s) => s.appid == 1245620);
+    expect(elden.channels, isNull);
+    expect(elden.viewers, isNull);
+  });
+
+  test('stops after the page cap instead of following cursors forever',
+      () async {
+    var streamCalls = 0;
+    final stats = await fetchWith(twitchClient(
+      games: (_) async => gamesBody('21779'),
+      streams: (_) async {
+        streamCalls++;
+        return streamsBody([1], cursor: 'more');
+      },
+    ));
+
+    expect(streamCalls, games.length * twitchMaxStreamPages);
+    final elden = stats.firstWhere((s) => s.appid == 1245620);
+    expect(elden.channels, twitchMaxStreamPages);
+  });
+
   test('sends the client id header on every Helix call', () async {
     final seen = <String?>[];
     final client = MockClient((request) async {

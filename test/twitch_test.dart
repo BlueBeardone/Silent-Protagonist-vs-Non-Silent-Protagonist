@@ -31,10 +31,16 @@ void main() {
     expect(page.cursor, isNull);
   });
 
-  test('a stream page with no data object is treated as empty', () {
-    final page = parseTwitchStreamsPage('{}');
-    expect(page.channels, 0);
-    expect(page.viewers, 0);
+  test('a stream page with no data list is malformed, not zero', () {
+    expect(() => parseTwitchStreamsPage('{}'), throwsFormatException);
+    expect(() => parseTwitchStreamsPage('[]'), throwsFormatException);
+  });
+
+  test('a stream without a viewer count is malformed', () {
+    expect(
+      () => parseTwitchStreamsPage('{"data":[{"viewer_count":"100"}]}'),
+      throwsFormatException,
+    );
   });
 
   test('parses a proxy response including nulls', () {

@@ -581,8 +581,8 @@ class TwitchAuth {
           .post(
             _tokenEndpoint,
             headers: {'content-type': 'application/x-www-form-urlencoded'},
-            body: 'client_id=$clientId'
-                '&client_secret=$_clientSecret'
+            body: 'client_id=${Uri.encodeQueryComponent(clientId)}'
+                '&client_secret=${Uri.encodeQueryComponent(_clientSecret)}'
                 '&grant_type=client_credentials',
           )
           .timeout(const Duration(seconds: 5));
@@ -706,9 +706,8 @@ Future<TwitchStreamsPage> _countTwitchStreams(
         )
         .timeout(const Duration(seconds: 5));
     if (response.statusCode != 200) {
-      // A partial tally is worse than a dash: report the failure.
-      if (page == 0) throw const FormatException('Twitch streams failed');
-      break;
+      // A partial tally is worse than a dash: every page must succeed.
+      throw const FormatException('Twitch streams failed');
     }
     final parsed = parseTwitchStreamsPage(response.body);
     channels += parsed.channels;
@@ -722,14 +721,14 @@ Future<TwitchStreamsPage> _countTwitchStreams(
 /// Builds the Twitch proxy handler.
 ///
 /// Twitch sends no CORS headers and needs a client id, so the browser cannot
-/// call it directly. The response is cached for [cacheTtl] (5 minutes by
-/// default) and rate-limited per client IP.
+/// call it directly. The response is cached for [cacheTtl] (60 seconds by
+/// default, matching `/api/stats`) and rate-limited per client IP.
 Handler twitchHandler(
   TwitchFetcher fetchTwitch, {
   RateLimiter? rateLimiter,
   int trustedProxyHops = 0,
   TtlCache<List<TwitchStats>>? cache,
-  Duration cacheTtl = const Duration(minutes: 5),
+  Duration cacheTtl = const Duration(seconds: 60),
 }) {
   final twitchCache = cache ?? TtlCache<List<TwitchStats>>(ttl: cacheTtl);
   final router = Router()
@@ -744,7 +743,7 @@ Handler twitchHandler(
         headers: {
           'content-type': 'application/json',
           'access-control-allow-origin': '*',
-          'cache-control': 'public, max-age=300',
+          'cache-control': 'public, max-age=60',
           'vary': 'Origin',
         },
       );

@@ -114,7 +114,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<List<TwitchStats>> _loadTwitchFromProxy() async {
-    final response = await http.get(Uri.parse(twitchUrl));
+    final response = await http
+        .get(Uri.parse(twitchUrl))
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode != 200) {
       throw Exception('Proxy returned ${response.statusCode}');
     }
