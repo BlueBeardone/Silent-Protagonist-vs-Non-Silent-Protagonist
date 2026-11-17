@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../logic/stats.dart';
 
-/// A filter bar for the camp whose games are shown. A null [selected] means
-/// "All"; otherwise only that camp's games are shown.
 class CampFilter extends StatelessWidget {
   const CampFilter({
     super.key,
