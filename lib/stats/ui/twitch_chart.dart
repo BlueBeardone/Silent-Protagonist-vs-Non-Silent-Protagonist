@@ -3,32 +3,32 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../logic/comparison.dart';
-import '../logic/reddit.dart';
 import '../logic/stats.dart';
+import '../logic/twitch.dart';
 import 'camp_filter.dart';
 import 'chart.dart';
 import 'numbers.dart' show formatPercent;
 
-/// The Reddit tab: the same look as the Steam chart, with each subreddit's
-/// online-now and total-member numbers.
-class RedditComparison extends StatefulWidget {
-  const RedditComparison({super.key, required this.stats});
+/// The Twitch tab: the same look as the Steam chart, with each category's live
+/// channels and live viewers.
+class TwitchComparison extends StatefulWidget {
+  const TwitchComparison({super.key, required this.stats});
 
-  final List<RedditStats> stats;
+  final List<TwitchStats> stats;
 
   @override
-  State<RedditComparison> createState() => _RedditComparisonState();
+  State<TwitchComparison> createState() => _TwitchComparisonState();
 }
 
-class _RedditComparisonState extends State<RedditComparison> {
+class _TwitchComparisonState extends State<TwitchComparison> {
   Camp? _camp;
 
   @override
   Widget build(BuildContext context) {
     // Judged by data, not by the list being non-empty: an empty response has
-    // zero non-null values, and the spec treats that as unavailable too.
+    // zero non-null values, and that counts as unavailable too.
     final everythingFailed = widget.stats
-        .every((game) => game.online == null && game.members == null);
+        .every((game) => game.channels == null && game.viewers == null);
     if (everythingFailed) {
       return const _UnavailableNote();
     }
@@ -36,16 +36,16 @@ class _RedditComparisonState extends State<RedditComparison> {
     final stats = _camp == null
         ? widget.stats
         : widget.stats.where((game) => game.camp == _camp).toList();
-    final onlineValues = [
-      for (final game in stats) ?game.online?.toDouble(),
+    final viewerValues = [
+      for (final game in stats) ?game.viewers?.toDouble(),
     ];
-    final memberValues = [
-      for (final game in stats) ?game.members?.toDouble(),
+    final channelValues = [
+      for (final game in stats) ?game.channels?.toDouble(),
     ];
-    final maxOnline =
-        onlineValues.isEmpty ? 0.0 : onlineValues.reduce(math.max);
-    final maxMembers =
-        memberValues.isEmpty ? 0.0 : memberValues.reduce(math.max);
+    final maxViewers =
+        viewerValues.isEmpty ? 0.0 : viewerValues.reduce(math.max);
+    final maxChannels =
+        channelValues.isEmpty ? 0.0 : channelValues.reduce(math.max);
 
     return Column(
       children: [
@@ -63,31 +63,31 @@ class _RedditComparisonState extends State<RedditComparison> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 for (final game in stats)
-                  _RedditGameGroup(
+                  _TwitchGameGroup(
                     game: game,
-                    maxOnline: maxOnline,
-                    maxMembers: maxMembers,
+                    maxViewers: maxViewers,
+                    maxChannels: maxChannels,
                   ),
               ],
             ),
           ),
         ),
-        if (_camp == null) _RedditVerdictPanel(rows: summarizeReddit(stats)),
+        if (_camp == null) _TwitchVerdictPanel(rows: summarizeTwitch(stats)),
       ],
     );
   }
 }
 
-class _RedditGameGroup extends StatelessWidget {
-  const _RedditGameGroup({
+class _TwitchGameGroup extends StatelessWidget {
+  const _TwitchGameGroup({
     required this.game,
-    required this.maxOnline,
-    required this.maxMembers,
+    required this.maxViewers,
+    required this.maxChannels,
   });
 
-  final RedditStats game;
-  final double maxOnline;
-  final double maxMembers;
+  final TwitchStats game;
+  final double maxViewers;
+  final double maxChannels;
 
   @override
   Widget build(BuildContext context) {
@@ -123,18 +123,18 @@ class _RedditGameGroup extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           StatBar(
-            metricLabel: 'Online now',
-            valueLabel: formatCount(game.online?.toDouble()),
-            value: game.online?.toDouble(),
-            maxValue: maxOnline,
+            metricLabel: twitchMetricLabel(TwitchMetric.viewers),
+            valueLabel: formatCount(game.viewers?.toDouble()),
+            value: game.viewers?.toDouble(),
+            maxValue: maxViewers,
             maxBarWidth: 220,
             color: color,
           ),
           StatBar(
-            metricLabel: 'Total members',
-            valueLabel: formatCount(game.members?.toDouble()),
-            value: game.members?.toDouble(),
-            maxValue: maxMembers,
+            metricLabel: twitchMetricLabel(TwitchMetric.channels),
+            valueLabel: formatCount(game.channels?.toDouble()),
+            value: game.channels?.toDouble(),
+            maxValue: maxChannels,
             maxBarWidth: 220,
             color: color.withValues(alpha: 0.42),
           ),
@@ -144,10 +144,10 @@ class _RedditGameGroup extends StatelessWidget {
   }
 }
 
-/// The pinned summary: one line per Reddit metric, then who is ahead overall
+/// The pinned summary: one line per Twitch metric, then who is ahead overall
 /// and what separates them most.
-class _RedditVerdictPanel extends StatelessWidget {
-  const _RedditVerdictPanel({required this.rows});
+class _TwitchVerdictPanel extends StatelessWidget {
+  const _TwitchVerdictPanel({required this.rows});
 
   final List<Comparison> rows;
 
@@ -168,7 +168,7 @@ class _RedditVerdictPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Subreddit activity', style: theme.textTheme.titleMedium),
+          Text('Live streaming activity', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           for (final row in rows)
             Text(_metricLine(row), style: theme.textTheme.bodyMedium),
@@ -176,7 +176,7 @@ class _RedditVerdictPanel extends StatelessWidget {
           Text(
             leader == null
                 ? 'Both sides are equally active'
-                : '${campLabel(leader)} subreddits are ahead overall',
+                : '${campLabel(leader)} categories are ahead overall',
             style: theme.textTheme.titleMedium!.copyWith(
               fontWeight: FontWeight.bold,
               color: leader == null ? null : campColor(leader),
@@ -221,13 +221,13 @@ class _UnavailableNote extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Reddit data unavailable',
+              'Twitch data unavailable',
               style: theme.textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              'Set REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET on the proxy, '
+              'Set TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET on the proxy, '
               'then refresh.',
               style: theme.textTheme.bodySmall,
               textAlign: TextAlign.center,

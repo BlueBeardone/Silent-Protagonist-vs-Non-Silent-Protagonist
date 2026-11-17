@@ -4,15 +4,15 @@ import 'package:http/http.dart' as http;
 import 'comments/logic/comments_api.dart';
 import 'comments/ui/community_tab.dart';
 import 'stats/logic/overall.dart';
-import 'stats/logic/reddit.dart';
 import 'stats/logic/stats.dart';
+import 'stats/logic/twitch.dart';
 import 'stats/ui/chart.dart';
 import 'stats/ui/numbers.dart';
 import 'stats/ui/overall.dart';
-import 'stats/ui/reddit_chart.dart';
+import 'stats/ui/twitch_chart.dart';
 
 const proxyUrl = '$apiBaseUrl/api/stats';
-const redditUrl = '$apiBaseUrl/api/reddit';
+const twitchUrl = '$apiBaseUrl/api/twitch';
 
 /// Base URL for the comments API, without a trailing slash.
 ///
@@ -37,9 +37,9 @@ const wideBreakpoint = 800.0;
 /// without touching the network.
 typedef StatsLoader = Future<List<GameStats>> Function();
 
-/// Loads the Reddit numbers shown on the Reddit and Overall pages. Injectable
+/// Loads the Twitch numbers shown on the Twitch and Overall pages. Injectable
 /// so tests can supply fixtures without touching the network.
-typedef RedditLoader = Future<List<RedditStats>> Function();
+typedef TwitchLoader = Future<List<TwitchStats>> Function();
 
 void main() {
   runApp(const App());
@@ -59,13 +59,13 @@ class App extends StatelessWidget {
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, this.loadStats, this.loadReddit, this.api});
+  const HomePage({super.key, this.loadStats, this.loadTwitch, this.api});
 
   /// Overrides how the stats are fetched; null uses the local proxy.
   final StatsLoader? loadStats;
 
-  /// Overrides how the Reddit numbers are fetched; null uses the local proxy.
-  final RedditLoader? loadReddit;
+  /// Overrides how the Twitch numbers are fetched; null uses the local proxy.
+  final TwitchLoader? loadTwitch;
 
   /// Overrides the comments client used by the Community tab; null builds a
   /// real same-origin client.
@@ -76,34 +76,34 @@ class HomePage extends StatefulWidget {
 }
 
 class _OverallData {
-  const _OverallData({required this.steam, required this.reddit});
+  const _OverallData({required this.steam, required this.twitch});
 
   final List<GameStats> steam;
-  final List<RedditStats> reddit;
+  final List<TwitchStats> twitch;
 }
 
 class _HomePageState extends State<HomePage> {
   late Future<List<GameStats>> _stats;
-  late Future<List<RedditStats>> _reddit;
+  late Future<List<TwitchStats>> _twitch;
   late Future<_OverallData> _overall;
   late final CommentsApi _api = widget.api ?? CommentsApi(baseUrl: apiBaseUrl);
 
   /// Which destination in the left drawer is showing: 0 chart, 1 numbers,
-  /// 2 reddit, 3 overall, 4 community.
+  /// 2 twitch, 3 overall, 4 community.
   int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _stats = _load();
-    _reddit = _loadReddit()..ignore();
+    _twitch = _loadTwitch()..ignore();
     _overall = _loadOverall()..ignore();
   }
 
   Future<List<GameStats>> _load() => (widget.loadStats ?? _loadFromProxy)();
 
-  Future<List<RedditStats>> _loadReddit() =>
-      (widget.loadReddit ?? _loadRedditFromProxy)();
+  Future<List<TwitchStats>> _loadTwitch() =>
+      (widget.loadTwitch ?? _loadTwitchFromProxy)();
 
   Future<List<GameStats>> _loadFromProxy() async {
     final response = await http.get(Uri.parse(proxyUrl));
@@ -113,12 +113,12 @@ class _HomePageState extends State<HomePage> {
     return parseStatsResponse(response.body);
   }
 
-  Future<List<RedditStats>> _loadRedditFromProxy() async {
-    final response = await http.get(Uri.parse(redditUrl));
+  Future<List<TwitchStats>> _loadTwitchFromProxy() async {
+    final response = await http.get(Uri.parse(twitchUrl));
     if (response.statusCode != 200) {
       throw Exception('Proxy returned ${response.statusCode}');
     }
-    return parseRedditResponse(response.body);
+    return parseTwitchResponse(response.body);
   }
 
   /// Waits for both sources, keeping whichever side loaded. When neither side
@@ -126,26 +126,26 @@ class _HomePageState extends State<HomePage> {
   /// with a "level" verdict would claim a comparison that never happened.
   Future<_OverallData> _loadOverall() async {
     var steam = <GameStats>[];
-    var reddit = <RedditStats>[];
+    var twitch = <TwitchStats>[];
     try {
       steam = await _stats;
     } catch (_) {
       // Leave Steam empty; the page notes it is unavailable.
     }
     try {
-      reddit = await _reddit;
+      twitch = await _twitch;
     } catch (_) {
-      // Leave Reddit empty; the page notes it is unavailable.
+      // Leave Twitch empty; the page notes it is unavailable.
     }
-    if (!steamHasData(steam) && !redditHasData(reddit)) {
+    if (!steamHasData(steam) && !twitchHasData(twitch)) {
       throw Exception('Both stats sources are unavailable.');
     }
-    return _OverallData(steam: steam, reddit: reddit);
+    return _OverallData(steam: steam, twitch: twitch);
   }
 
   void _refresh() => setState(() {
         _stats = _load();
-        _reddit = _loadReddit()..ignore();
+        _twitch = _loadTwitch()..ignore();
         _overall = _loadOverall()..ignore();
       });
 
@@ -179,7 +179,7 @@ class _HomePageState extends State<HomePage> {
       destinations: const [
         NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Chart'),
         NavigationDestination(icon: Icon(Icons.tag), label: 'Numbers'),
-        NavigationDestination(icon: Icon(Icons.reddit), label: 'Reddit'),
+        NavigationDestination(icon: Icon(Icons.live_tv), label: 'Twitch'),
         NavigationDestination(icon: Icon(Icons.insights), label: 'Overall'),
         NavigationDestination(icon: Icon(Icons.forum), label: 'Community'),
       ],
@@ -198,11 +198,11 @@ class _HomePageState extends State<HomePage> {
           builder: (stats) => NumbersComparison(stats: stats),
         );
       case 2:
-        return _AsyncTab<List<RedditStats>>(
-          future: _reddit,
+        return _AsyncTab<List<TwitchStats>>(
+          future: _twitch,
           onRetry: _refresh,
-          errorMessage: 'Could not load Reddit numbers from /api/reddit.',
-          builder: (stats) => RedditComparison(stats: stats),
+          errorMessage: 'Could not load Twitch numbers from /api/twitch.',
+          builder: (stats) => TwitchComparison(stats: stats),
         );
       case 3:
         return _AsyncTab<_OverallData>(
@@ -210,7 +210,7 @@ class _HomePageState extends State<HomePage> {
           onRetry: _refresh,
           errorMessage: 'Could not load either stats source.',
           builder: (data) =>
-              OverallComparison(steam: data.steam, reddit: data.reddit),
+              OverallComparison(steam: data.steam, twitch: data.twitch),
         );
       case 4:
         return CommunityTab(api: _api);
@@ -256,8 +256,8 @@ class _HomePageState extends State<HomePage> {
             onTap: () => _select(1, context),
           ),
           _DrawerEntry(
-            icon: Icons.reddit,
-            label: 'Reddit',
+            icon: Icons.live_tv,
+            label: 'Twitch',
             selected: _selectedIndex == 2,
             onTap: () => _select(2, context),
           ),

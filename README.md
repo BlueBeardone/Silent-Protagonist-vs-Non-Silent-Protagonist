@@ -48,11 +48,12 @@ directly. The small Dart proxy in `lib/server.dart` (entrypoint
 - 30-day average: the "Last 30 Days" row scraped from `steamcharts.com`
 - 6-month average: the last six monthly rows on `steamcharts.com`, averaged
 - All-time peak: the "all-time peak" figure in the `steamcharts.com` header
-- Reddit numbers: `active_user_count` (online now) and `subscribers` (total
-  members) from `oauth.reddit.com/r/<sub>/about.json`, using a free Reddit
-  "script" app created at `reddit.com/prefs/apps`. Set
-  `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET`; without them the Reddit page
-  and the Reddit rows on the Overall page show dashes.
+- Twitch numbers: live channels and summed live viewers from
+  `api.twitch.tv/helix/streams`, with each game's category id resolved from
+  `api.twitch.tv/helix/games`. Uses a free Twitch app created at
+  `dev.twitch.tv/console/apps`. Set `TWITCH_CLIENT_ID` and
+  `TWITCH_CLIENT_SECRET`; without them the Twitch page and the Twitch rows on
+  the Overall page show dashes.
 - A failed lookup stays `null` and the UI shows a dash.
 
 ## Run it
@@ -122,9 +123,8 @@ The server now includes:
 | `CSP` | Optional. Overrides the default Content-Security-Policy. |
 | `API_ORIGIN` | Optional. The API origin for the app's CSP when split. |
 | `RETENTION_DAYS` | Documented retention period. |
-| `REDDIT_CLIENT_ID` | Reddit "script" app client id. Empty hides Reddit numbers. |
-| `REDDIT_CLIENT_SECRET` | Reddit app secret. Empty hides Reddit numbers. |
-| `REDDIT_USER_AGENT` | Optional. Descriptive User-Agent Reddit expects. |
+| `TWITCH_CLIENT_ID` | Twitch app client id. Empty hides Twitch numbers. |
+| `TWITCH_CLIENT_SECRET` | Twitch app secret. Empty hides Twitch numbers. |
 
 ### Render (recommended)
 

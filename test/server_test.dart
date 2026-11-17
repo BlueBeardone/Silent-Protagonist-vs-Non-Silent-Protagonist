@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shelf/shelf.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/shared/utils/server.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/stats/logic/reddit.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/stats/logic/stats.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/stats/logic/twitch.dart';
 
 void main() {
   group('statsHandler', () {
@@ -62,56 +62,56 @@ void main() {
     });
   });
 
-  group('redditHandler', () {
-    test('serves fetched Reddit stats as JSON from GET /api/reddit', () async {
-      final handler = redditHandler(() async => const [
-            RedditStats(
+  group('twitchHandler', () {
+    test('serves fetched Twitch stats as JSON from GET /api/twitch', () async {
+      final handler = twitchHandler(() async => const [
+            TwitchStats(
                 name: 'Elden Ring',
                 camp: Camp.silent,
                 appid: 1245620,
-                subreddit: 'Eldenring',
-                online: 15269,
-                members: 1234567),
-            RedditStats(
+                category: 'Elden Ring',
+                channels: 12,
+                viewers: 15269),
+            TwitchStats(
                 name: 'GTA V',
                 camp: Camp.nonSilent,
                 appid: 271590,
-                subreddit: 'GTAV'),
+                category: 'Grand Theft Auto V'),
           ]);
 
       final response = await handler(
-          Request('GET', Uri.parse('http://localhost/api/reddit')));
+          Request('GET', Uri.parse('http://localhost/api/twitch')));
 
       expect(response.statusCode, 200);
       expect(response.headers['access-control-allow-origin'], '*');
       expect(response.headers['cache-control'], contains('max-age=300'));
       final body = jsonDecode(await response.readAsString()) as List;
-      expect(body[0]['subreddit'], 'Eldenring');
-      expect(body[0]['online'], 15269);
-      expect(body[1]['online'], isNull);
-      expect(body[1]['members'], isNull);
+      expect(body[0]['category'], 'Elden Ring');
+      expect(body[0]['viewers'], 15269);
+      expect(body[1]['channels'], isNull);
+      expect(body[1]['viewers'], isNull);
     });
 
     test('reuses one fetch across requests within the TTL', () async {
       var fetches = 0;
-      final handler = redditHandler(() async {
+      final handler = twitchHandler(() async {
         fetches++;
         return const [
-          RedditStats(
+          TwitchStats(
               name: 'Elden Ring',
               camp: Camp.silent,
               appid: 1245620,
-              subreddit: 'Eldenring',
-              online: 1,
-              members: 2),
+              category: 'Elden Ring',
+              channels: 1,
+              viewers: 2),
         ];
       });
 
       final first = await handler(
-          Request('GET', Uri.parse('http://localhost/api/reddit')));
+          Request('GET', Uri.parse('http://localhost/api/twitch')));
       await first.readAsString();
       final second = await handler(
-          Request('GET', Uri.parse('http://localhost/api/reddit')));
+          Request('GET', Uri.parse('http://localhost/api/twitch')));
       await second.readAsString();
 
       expect(fetches, 1);

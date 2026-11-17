@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/comments/ui/community_tab.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/main.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/stats/logic/reddit.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/stats/logic/stats.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/stats/logic/twitch.dart';
 import 'package:silent_protagonist_vs_non_silent_protagonist/stats/ui/overall.dart';
-import 'package:silent_protagonist_vs_non_silent_protagonist/stats/ui/reddit_chart.dart';
+import 'package:silent_protagonist_vs_non_silent_protagonist/stats/ui/twitch_chart.dart';
 
 void main() {
   const sample = <GameStats>[
@@ -25,27 +25,27 @@ void main() {
         avg6m: 300),
   ];
 
-  const redditSample = <RedditStats>[
-    RedditStats(
+  const twitchSample = <TwitchStats>[
+    TwitchStats(
         name: 'Elden Ring',
         camp: Camp.silent,
         appid: 1,
-        subreddit: 'Eldenring',
-        online: 900,
-        members: 9000),
-    RedditStats(
+        category: 'Elden Ring',
+        channels: 90,
+        viewers: 9000),
+    TwitchStats(
         name: 'God of War',
         camp: Camp.nonSilent,
         appid: 2,
-        subreddit: 'GodofWar',
-        online: 100,
-        members: 1000),
+        category: 'God of War',
+        channels: 10,
+        viewers: 1000),
   ];
 
   Widget app() => MaterialApp(
         home: HomePage(
           loadStats: () async => sample,
-          loadReddit: () async => redditSample,
+          loadTwitch: () async => twitchSample,
         ),
       );
 
@@ -66,19 +66,19 @@ void main() {
     expect(find.text('Chart'), findsOneWidget);
     expect(find.text('Numbers'), findsOneWidget);
     expect(find.text('Community'), findsOneWidget);
-    expect(find.text('Reddit'), findsOneWidget);
+    expect(find.text('Twitch'), findsOneWidget);
     expect(find.text('Overall'), findsOneWidget);
   });
 
-  testWidgets('Reddit destination shows the Reddit page', (tester) async {
+  testWidgets('Twitch destination shows the Twitch page', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
     await openDrawer(tester);
-    await tester.tap(find.text('Reddit'));
+    await tester.tap(find.text('Twitch'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(RedditComparison), findsOneWidget);
+    expect(find.byType(TwitchComparison), findsOneWidget);
   });
 
   testWidgets('Overall destination shows the combined page', (tester) async {
@@ -93,12 +93,12 @@ void main() {
     expect(find.text('Steam current players'), findsOneWidget);
   });
 
-  testWidgets('a Reddit failure does not break the Steam chart',
+  testWidgets('a Twitch failure does not break the Steam chart',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: HomePage(
         loadStats: () async => sample,
-        loadReddit: () async => throw Exception('reddit down'),
+        loadTwitch: () async => throw Exception('twitch down'),
       ),
     ));
     await tester.pumpAndSettle();
@@ -111,7 +111,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: HomePage(
         loadStats: () async => throw Exception('steam down'),
-        loadReddit: () async => throw Exception('reddit down'),
+        loadTwitch: () async => throw Exception('twitch down'),
       ),
     ));
     await tester.pumpAndSettle();
@@ -134,14 +134,14 @@ void main() {
           GameStats(name: 'Elden Ring', camp: Camp.silent, appid: 1),
           GameStats(name: 'God of War', camp: Camp.nonSilent, appid: 2),
         ],
-        loadReddit: () async => const [
-          RedditStats(
-              name: 'Elden Ring', camp: Camp.silent, appid: 1, subreddit: 'a'),
-          RedditStats(
+        loadTwitch: () async => const [
+          TwitchStats(
+              name: 'Elden Ring', camp: Camp.silent, appid: 1, category: 'a'),
+          TwitchStats(
               name: 'God of War',
               camp: Camp.nonSilent,
               appid: 2,
-              subreddit: 'b'),
+              category: 'b'),
         ],
       ),
     ));

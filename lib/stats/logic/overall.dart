@@ -1,15 +1,15 @@
 import 'comparison.dart';
-import 'reddit.dart';
 import 'stats.dart';
+import 'twitch.dart';
 
-/// One line of the Overall table: a Steam or Reddit metric compared per camp.
+/// One line of the Overall table: a Steam or Twitch metric compared per camp.
 ///
-/// Rows, in order: Steam current players, Steam 30-day average, Reddit online
-/// now, Reddit total members. Failed lookups are skipped by [compareValues],
-/// so a dash never counts as a zero.
+/// Rows, in order: Steam current players, Steam 30-day average, Twitch live
+/// viewers, Twitch live channels. Failed lookups are skipped by
+/// [compareValues], so a dash never counts as a zero.
 List<Comparison> overallRows(
   List<GameStats> steam,
-  List<RedditStats> reddit,
+  List<TwitchStats> twitch,
 ) {
   List<double> values<T>(Iterable<T> items, double? Function(T) pick) =>
       [for (final item in items) ?pick(item)];
@@ -38,25 +38,25 @@ List<Comparison> overallRows(
       ),
     ),
     compareValues(
-      label: 'Reddit online now',
+      label: 'Twitch live viewers',
       silent: values(
-        reddit.where((game) => game.camp == Camp.silent),
-        (game) => redditMetricValue(game, RedditMetric.online),
+        twitch.where((game) => game.camp == Camp.silent),
+        (game) => twitchMetricValue(game, TwitchMetric.viewers),
       ),
       nonSilent: values(
-        reddit.where((game) => game.camp == Camp.nonSilent),
-        (game) => redditMetricValue(game, RedditMetric.online),
+        twitch.where((game) => game.camp == Camp.nonSilent),
+        (game) => twitchMetricValue(game, TwitchMetric.viewers),
       ),
     ),
     compareValues(
-      label: 'Reddit total members',
+      label: 'Twitch live channels',
       silent: values(
-        reddit.where((game) => game.camp == Camp.silent),
-        (game) => redditMetricValue(game, RedditMetric.members),
+        twitch.where((game) => game.camp == Camp.silent),
+        (game) => twitchMetricValue(game, TwitchMetric.channels),
       ),
       nonSilent: values(
-        reddit.where((game) => game.camp == Camp.nonSilent),
-        (game) => redditMetricValue(game, RedditMetric.members),
+        twitch.where((game) => game.camp == Camp.nonSilent),
+        (game) => twitchMetricValue(game, TwitchMetric.channels),
       ),
     ),
   ];
@@ -69,9 +69,9 @@ List<Comparison> overallRows(
 bool steamHasData(List<GameStats> steam) =>
     steam.any((game) => game.current != null || game.avg30d != null);
 
-/// Whether at least one subreddit lookup resolved a value.
+/// Whether at least one Twitch category lookup resolved a value.
 ///
 /// Judging availability by data rather than by whether the future threw is
 /// what lets the Overall page tell "credentials unset" apart from a real load.
-bool redditHasData(List<RedditStats> reddit) =>
-    reddit.any((game) => game.online != null || game.members != null);
+bool twitchHasData(List<TwitchStats> twitch) =>
+    twitch.any((game) => game.channels != null || game.viewers != null);
