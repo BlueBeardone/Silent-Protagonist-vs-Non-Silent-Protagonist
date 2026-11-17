@@ -2,38 +2,38 @@ import 'package:flutter/material.dart';
 
 import '../logic/comparison.dart';
 import '../logic/overall.dart';
-import '../logic/reddit.dart';
 import '../logic/stats.dart';
+import '../logic/twitch.dart';
 import 'chart.dart';
 import 'numbers.dart' show compactNumbersBreakpoint, formatPercent;
 
-/// The Overall tab: Steam and Reddit totals side by side for the two camps.
+/// The Overall tab: Steam and Twitch totals side by side for the two camps.
 class OverallComparison extends StatelessWidget {
   const OverallComparison({
     super.key,
     required this.steam,
-    required this.reddit,
+    required this.twitch,
   });
 
   final List<GameStats> steam;
-  final List<RedditStats> reddit;
+  final List<TwitchStats> twitch;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final rows = overallRows(steam, reddit);
+    final rows = overallRows(steam, twitch);
     final steamAvailable = steamHasData(steam);
-    final redditAvailable = redditHasData(reddit);
+    final twitchAvailable = twitchHasData(twitch);
 
     final steamSilent = steam.where((g) => g.camp == Camp.silent).length;
     final steamNonSilent = steam.where((g) => g.camp == Camp.nonSilent).length;
-    final redditSilent = reddit.where((g) => g.camp == Camp.silent).length;
-    final redditNonSilent =
-        reddit.where((g) => g.camp == Camp.nonSilent).length;
+    final twitchSilent = twitch.where((g) => g.camp == Camp.silent).length;
+    final twitchNonSilent =
+        twitch.where((g) => g.camp == Camp.nonSilent).length;
 
     int denominatorFor(int row, bool silent) {
       if (row < 2) return silent ? steamSilent : steamNonSilent;
-      return silent ? redditSilent : redditNonSilent;
+      return silent ? twitchSilent : twitchNonSilent;
     }
 
     return Column(
@@ -44,7 +44,7 @@ class OverallComparison extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Steam players and Reddit members are different units, so '
+                'Steam players and Twitch viewers are different units, so '
                 'they are shown side by side, not added together.',
                 style: theme.textTheme.bodyMedium,
               ),
@@ -52,9 +52,9 @@ class OverallComparison extends StatelessWidget {
                 const SizedBox(height: 8),
                 const _SourceNote(source: 'Steam'),
               ],
-              if (!redditAvailable) ...[
+              if (!twitchAvailable) ...[
                 const SizedBox(height: 8),
-                const _SourceNote(source: 'Reddit'),
+                const _SourceNote(source: 'Twitch'),
               ],
             ],
           ),
@@ -270,9 +270,9 @@ class _SourceNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final message = source == 'Reddit'
-        ? 'Reddit data unavailable — set REDDIT_CLIENT_ID and '
-            'REDDIT_CLIENT_SECRET on the proxy and refresh.'
+    final message = source == 'Twitch'
+        ? 'Twitch data unavailable — set TWITCH_CLIENT_ID and '
+            'TWITCH_CLIENT_SECRET on the proxy and refresh.'
         : 'Steam data unavailable — /api/stats returned no players. '
             'Refresh to try again.';
     return Text(

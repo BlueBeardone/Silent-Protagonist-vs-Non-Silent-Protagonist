@@ -223,19 +223,15 @@ Future<void> main(List<String> args) async {
     );
   }
 
-  final redditClientId = env['REDDIT_CLIENT_ID']?.trim() ?? '';
-  final redditClientSecret = env['REDDIT_CLIENT_SECRET']?.trim() ?? '';
-  final rawRedditUserAgent = env['REDDIT_USER_AGENT']?.trim() ?? '';
-  final redditAuth = RedditAuth(
-    clientId: redditClientId,
-    clientSecret: redditClientSecret,
-    userAgent: rawRedditUserAgent.isEmpty
-        ? defaultRedditUserAgent
-        : rawRedditUserAgent,
+  final twitchClientId = env['TWITCH_CLIENT_ID']?.trim() ?? '';
+  final twitchClientSecret = env['TWITCH_CLIENT_SECRET']?.trim() ?? '';
+  final twitchAuth = TwitchAuth(
+    clientId: twitchClientId,
+    clientSecret: twitchClientSecret,
   );
-  if (!redditAuth.enabled) {
+  if (!twitchAuth.enabled) {
     stdout.writeln(
-      'REDDIT_CLIENT_ID/SECRET not set; Reddit numbers will be unavailable.',
+      'TWITCH_CLIENT_ID/SECRET not set; Twitch numbers will be unavailable.',
     );
   }
 
@@ -284,8 +280,8 @@ Future<void> main(List<String> args) async {
 
   final cascade = Cascade()
       .add(comments)
-      .add(redditHandler(
-        () => fetchLiveReddit(redditAuth),
+      .add(twitchHandler(
+        () => fetchLiveTwitch(twitchAuth),
         rateLimiter: statsLimiter,
         trustedProxyHops: trustedProxyHops,
       ))

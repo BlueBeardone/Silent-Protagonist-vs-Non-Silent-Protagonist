@@ -37,22 +37,26 @@ there is no comparison to make.
 ```
 Flutter web app  --HTTP-->  local proxy  --HTTP-->  Steam Web API (current players)
   (browser)                 (port 8080)     \----->  SteamCharts (30-day average)
+                                  \-------------->  Twitch Helix (live viewers/channels)
 ```
 
-Steam and SteamCharts send no CORS headers, so a browser can't call them
-directly. The small Dart proxy in `lib/server.dart` (entrypoint
-`bin/server.dart`) fetches both sources, merges them, and serves JSON from
-`GET /api/stats`.
+Steam, SteamCharts and Twitch send no CORS headers, so a browser can't call
+them directly. The small Dart proxy in `lib/shared/utils/server.dart`
+(entrypoint `bin/server.dart`) fetches the sources, merges them, and serves
+JSON from `GET /api/stats` and `GET /api/twitch`.
 
 - Live players: Steam `ISteamUserStats/GetNumberOfCurrentPlayers`
 - 30-day average: the "Last 30 Days" row scraped from `steamcharts.com`
 - 6-month average: the last six monthly rows on `steamcharts.com`, averaged
 - All-time peak: the "all-time peak" figure in the `steamcharts.com` header
-- Reddit numbers: `active_user_count` (online now) and `subscribers` (total
-  members) from `oauth.reddit.com/r/<sub>/about.json`, using a free Reddit
-  "script" app created at `reddit.com/prefs/apps`. Set
-  `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET`; without them the Reddit page
-  and the Reddit rows on the Overall page show dashes.
+- Twitch numbers: live channels and summed live viewers from
+  `api.twitch.tv/helix/streams`, with each game's category id resolved from
+  `api.twitch.tv/helix/games`. Uses a free Twitch app created at
+  `dev.twitch.tv/console/apps`. Set `TWITCH_CLIENT_ID` and
+  `TWITCH_CLIENT_SECRET`; without them the Twitch page and the Twitch rows on
+  the Overall page show dashes. Viewer/channel totals follow stream pages up
+  to five pages (500 channels), so a very popular category is an undercount
+  rather than a hang.
 - A failed lookup stays `null` and the UI shows a dash.
 
 ## Run it
@@ -89,8 +93,9 @@ The server now includes:
 - **Shared rate limiting** — a MongoDB-backed `rate_limits` collection with a
   TTL index, so limits survive restarts and are shared across instances. If
   Mongo is unreachable, the limiter falls back to in-memory.
-- **Stats cache** — `/api/stats` is cached for 60 seconds and rate-limited
-  (60/min per IP), with 5-second timeouts on the upstream calls.
+- **Stats cache** — `/api/stats` and `/api/twitch` are cached for 60 seconds
+  and rate-limited (60/min per IP), with 5-second timeouts on the upstream
+  calls.
 - **Spam protection** — a `website` honeypot field on every comment, plus
   optional Cloudflare Turnstile when `TURNSTILE_SECRET_KEY` is set.
 - **Security headers** — CSP, HSTS, `nosniff`, `frame-ancestors`, and
@@ -122,9 +127,8 @@ The server now includes:
 | `CSP` | Optional. Overrides the default Content-Security-Policy. |
 | `API_ORIGIN` | Optional. The API origin for the app's CSP when split. |
 | `RETENTION_DAYS` | Documented retention period. |
-| `REDDIT_CLIENT_ID` | Reddit "script" app client id. Empty hides Reddit numbers. |
-| `REDDIT_CLIENT_SECRET` | Reddit app secret. Empty hides Reddit numbers. |
-| `REDDIT_USER_AGENT` | Optional. Descriptive User-Agent Reddit expects. |
+| `TWITCH_CLIENT_ID` | Twitch app client id. Empty hides Twitch numbers. |
+| `TWITCH_CLIENT_SECRET` | Twitch app secret. Empty hides Twitch numbers. |
 
 ### Render (recommended)
 

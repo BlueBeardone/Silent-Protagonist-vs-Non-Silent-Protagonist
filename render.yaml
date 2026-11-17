@@ -27,9 +27,7 @@ services:
         sync: false
       - key: RETENTION_DAYS
         value: "365"
-      - key: REDDIT_CLIENT_ID
+      - key: TWITCH_CLIENT_ID
         sync: false
-      - key: REDDIT_CLIENT_SECRET
+      - key: TWITCH_CLIENT_SECRET
         sync: false
-      - key: REDDIT_USER_AGENT
-        value: "linux:silent-protagonist-vs-non-silent:1.0 (by /u/unknown)"
